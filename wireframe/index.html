@@ -1,0 +1,1512 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>学習塾時間割最適化システム - ワイヤーフレーム</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; color: #333; }
+
+        /* ナビゲーション */
+        .nav { position: fixed; top: 0; left: 0; right: 0; background: #2c3e50; color: white; padding: 10px 20px; z-index: 1000; display: flex; justify-content: space-between; align-items: center; }
+        .nav h1 { font-size: 16px; font-weight: normal; }
+        .nav select { padding: 8px 12px; font-size: 14px; border: none; border-radius: 4px; }
+        .current-screen { font-size: 14px; color: #bdc3c7; }
+
+        /* レイアウト */
+        .container { margin-top: 50px; min-height: calc(100vh - 50px); }
+        section { display: none; min-height: calc(100vh - 50px); }
+        section.active { display: block; }
+        .layout { display: flex; min-height: calc(100vh - 50px); }
+
+        /* サイドバー */
+        .sidebar { width: 220px; background: #34495e; color: white; padding: 20px 0; flex-shrink: 0; }
+        .sidebar-item { padding: 12px 20px; cursor: pointer; border-left: 3px solid transparent; transition: all 0.2s; font-size: 14px; }
+        .sidebar-item:hover, .sidebar-item.active { background: #3d566e; border-left-color: #3498db; }
+        .sidebar-section { padding: 8px 20px; font-size: 12px; color: #95a5a6; text-transform: uppercase; margin-top: 16px; }
+
+        /* メインコンテンツ */
+        .main { flex: 1; padding: 24px; background: #f5f5f5; overflow-y: auto; }
+        .header { background: white; padding: 16px 24px; margin: -24px -24px 24px; border-bottom: 1px solid #e0e0e0; display: flex; justify-content: space-between; align-items: center; }
+        .title { font-size: 20px; font-weight: 600; }
+
+        /* カード */
+        .card { background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .card-title { font-size: 14px; color: #666; margin-bottom: 12px; }
+        .card-value { font-size: 32px; font-weight: 600; color: #2c3e50; }
+        .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; }
+
+        /* テーブル */
+        .table-container { background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 12px 16px; text-align: left; border-bottom: 1px solid #e0e0e0; font-size: 14px; }
+        th { background: #f8f9fa; font-weight: 600; color: #666; }
+
+        /* ボタン */
+        .btn { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+        .btn-primary { background: #3498db; color: white; }
+        .btn-primary:hover { background: #2980b9; }
+        .btn-secondary { background: #95a5a6; color: white; }
+        .btn-success { background: #27ae60; color: white; }
+        .btn-danger { background: #e74c3c; color: white; }
+        .btn-sm { padding: 6px 12px; font-size: 12px; }
+
+        /* フォーム */
+        .form-group { margin-bottom: 16px; }
+        .form-group label { display: block; margin-bottom: 6px; font-weight: 500; font-size: 14px; }
+        .form-control { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; }
+        .form-control:focus { outline: none; border-color: #3498db; }
+
+        /* バッジ */
+        .badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; }
+        .badge-success { background: #d4edda; color: #155724; }
+        .badge-warning { background: #fff3cd; color: #856404; }
+        .badge-danger { background: #f8d7da; color: #721c24; }
+        .badge-info { background: #d1ecf1; color: #0c5460; }
+        .badge-secondary { background: #e9ecef; color: #495057; }
+
+        /* ヒートマップ */
+        .heatmap { display: grid; grid-template-columns: 60px repeat(6, 1fr); gap: 2px; }
+        .heatmap-cell { padding: 12px 8px; text-align: center; font-size: 12px; border-radius: 4px; }
+        .heatmap-header { background: #f8f9fa; font-weight: 600; }
+        .heatmap-label { background: #f8f9fa; font-weight: 500; }
+        .heat-green { background: #d4edda; color: #155724; }
+        .heat-yellow-green { background: #e8f5e9; color: #2e7d32; }
+        .heat-yellow { background: #fff3cd; color: #856404; }
+        .heat-red { background: #f8d7da; color: #721c24; }
+
+        /* マトリクス */
+        .matrix { display: grid; gap: 2px; overflow-x: auto; }
+        .matrix-cell { padding: 8px; text-align: center; font-size: 12px; border-radius: 4px; cursor: pointer; min-width: 40px; }
+        .matrix-header { background: #f8f9fa; font-weight: 600; }
+        .cell-ok { background: #d4edda; color: #155724; }
+        .cell-ng { background: #f8d7da; color: #721c24; }
+        .cell-maybe { background: #fff3cd; color: #856404; }
+
+        /* タブ */
+        .tabs { display: flex; border-bottom: 2px solid #e0e0e0; margin-bottom: 20px; }
+        .tab { padding: 12px 24px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; font-weight: 500; }
+        .tab:hover { background: #f5f5f5; }
+        .tab.active { border-bottom-color: #3498db; color: #3498db; }
+
+        /* モーダル */
+        .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 2000; justify-content: center; align-items: center; }
+        .modal.active { display: flex; }
+        .modal-content { background: white; border-radius: 8px; padding: 24px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .modal-title { font-size: 18px; font-weight: 600; }
+        .modal-close { background: none; border: none; font-size: 24px; cursor: pointer; color: #666; }
+
+        /* ログイン画面 */
+        .login-container { display: flex; justify-content: center; align-items: center; min-height: calc(100vh - 50px); background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .login-box { background: white; padding: 40px; border-radius: 12px; width: 400px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
+        .login-logo { text-align: center; margin-bottom: 30px; font-size: 24px; font-weight: 600; color: #2c3e50; }
+
+        /* カレンダービュー */
+        .calendar { display: grid; grid-template-columns: 80px repeat(6, 1fr); gap: 1px; background: #e0e0e0; border-radius: 8px; overflow: hidden; }
+        .calendar-cell { background: white; padding: 8px; min-height: 80px; font-size: 12px; }
+        .calendar-header { background: #f8f9fa; font-weight: 600; text-align: center; padding: 12px 8px; }
+        .calendar-slot { background: #e3f2fd; border-radius: 4px; padding: 6px; margin: 2px 0; cursor: move; }
+        .calendar-slot.conflict { background: #ffebee; border: 1px solid #ef5350; }
+
+        /* チャットパネル */
+        .chat-panel { background: white; border-radius: 8px; height: 400px; display: flex; flex-direction: column; }
+        .chat-messages { flex: 1; padding: 16px; overflow-y: auto; }
+        .chat-message { margin-bottom: 12px; }
+        .chat-message.user { text-align: right; }
+        .chat-message .bubble { display: inline-block; padding: 10px 14px; border-radius: 12px; max-width: 80%; font-size: 14px; }
+        .chat-message.user .bubble { background: #3498db; color: white; }
+        .chat-message.agent .bubble { background: #f5f5f5; color: #333; }
+        .chat-input { display: flex; padding: 12px; border-top: 1px solid #e0e0e0; gap: 8px; }
+        .chat-input input { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 20px; }
+
+        /* 進捗バー */
+        .progress { height: 8px; background: #e0e0e0; border-radius: 4px; overflow: hidden; }
+        .progress-bar { height: 100%; background: #3498db; transition: width 0.3s; }
+
+        /* アルゴリズム選択 */
+        .algorithm-card { border: 2px solid #e0e0e0; border-radius: 8px; padding: 16px; cursor: pointer; transition: all 0.2s; }
+        .algorithm-card:hover { border-color: #3498db; }
+        .algorithm-card.selected { border-color: #3498db; background: #e3f2fd; }
+        .algorithm-card .name { font-weight: 600; margin-bottom: 4px; }
+        .algorithm-card .desc { font-size: 12px; color: #666; }
+
+        /* 思考過程パネル */
+        .thinking-panel { background: #f8f9fa; border-radius: 8px; padding: 16px; }
+        .thinking-step { display: flex; align-items: flex-start; margin-bottom: 12px; }
+        .thinking-step .icon { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 12px; font-size: 12px; }
+        .thinking-step.done .icon { background: #d4edda; color: #155724; }
+        .thinking-step.active .icon { background: #cce5ff; color: #004085; }
+        .thinking-step.pending .icon { background: #e9ecef; color: #6c757d; }
+        .thinking-step .content { flex: 1; }
+        .thinking-step .title { font-weight: 500; font-size: 14px; }
+        .thinking-step .detail { font-size: 12px; color: #666; margin-top: 4px; }
+
+        /* 振替候補パネル */
+        .candidate-card { border: 1px solid #e0e0e0; border-radius: 8px; padding: 16px; margin-bottom: 12px; cursor: pointer; }
+        .candidate-card:hover { border-color: #3498db; }
+        .candidate-card.recommended { border-color: #27ae60; background: #f0fff4; }
+        .candidate-rank { font-weight: 600; color: #3498db; margin-right: 8px; }
+        .candidate-info { font-size: 14px; }
+        .candidate-score { font-size: 12px; color: #666; margin-top: 4px; }
+
+        /* ツールチップ */
+        .tooltip { position: relative; }
+        .tooltip:hover::after { content: attr(data-tooltip); position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 6px 10px; border-radius: 4px; font-size: 12px; white-space: nowrap; z-index: 100; }
+
+        /* ユーティリティ */
+        .flex { display: flex; }
+        .flex-1 { flex: 1; }
+        .gap-2 { gap: 8px; }
+        .gap-4 { gap: 16px; }
+        .mb-2 { margin-bottom: 8px; }
+        .mb-4 { margin-bottom: 16px; }
+        .mt-4 { margin-top: 16px; }
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .text-sm { font-size: 12px; }
+        .text-muted { color: #666; }
+    </style>
+</head>
+<body>
+    <!-- ナビゲーション -->
+    <nav class="nav">
+        <h1>学習塾時間割最適化システム - ワイヤーフレーム</h1>
+        <div class="flex gap-4" style="align-items: center;">
+            <span class="current-screen">現在: <span id="currentScreenName">P001 ログイン画面</span></span>
+            <select id="screenSelector" onchange="showScreen(this.value)">
+                <option value="P001">P001 ログイン画面</option>
+                <option value="P002">P002 ダッシュボード（教室長）</option>
+                <option value="P003">P003 マネジメントダッシュボード</option>
+                <option value="P004">P004 教室設定画面</option>
+                <option value="P005">P005 講師管理画面</option>
+                <option value="P006">P006 生徒管理画面</option>
+                <option value="P007">P007 希望データ確認画面</option>
+                <option value="P008">P008 条件設定画面</option>
+                <option value="P009">P009 時間割作成画面</option>
+                <option value="P010">P010 振替対応画面</option>
+                <option value="P011">P011 ターム管理画面</option>
+                <option value="P012">P012 ユーザー管理画面</option>
+                <option value="P013">P013 教室マスタ管理画面</option>
+            </select>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- P001: ログイン画面 -->
+        <section id="P001" class="active">
+            <div class="login-container">
+                <div class="login-box">
+                    <div class="login-logo">時間割最適化システム</div>
+                    <div class="form-group">
+                        <label>メールアドレス</label>
+                        <input type="email" class="form-control" placeholder="example@school.jp">
+                    </div>
+                    <div class="form-group">
+                        <label>パスワード</label>
+                        <input type="password" class="form-control" placeholder="8文字以上">
+                    </div>
+                    <div class="form-group">
+                        <label style="display: flex; align-items: center; gap: 8px; font-weight: normal;">
+                            <input type="checkbox"> ログイン状態を維持する
+                        </label>
+                    </div>
+                    <button class="btn btn-primary" style="width: 100%;" onclick="showScreen('P002')">ログイン</button>
+                    <p style="text-align: center; margin-top: 16px; font-size: 14px;">
+                        <a href="#" style="color: #3498db;">パスワードを忘れた方</a>
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- P002: ダッシュボード（教室長） -->
+        <section id="P002">
+            <div class="layout">
+                <aside class="sidebar">
+                    <div class="sidebar-section">メイン</div>
+                    <div class="sidebar-item active">ダッシュボード</div>
+                    <div class="sidebar-section">時間割</div>
+                    <div class="sidebar-item" onclick="showScreen('P008')">時間割作成</div>
+                    <div class="sidebar-item" onclick="showScreen('P010')">振替対応</div>
+                    <div class="sidebar-item" onclick="showScreen('P011')">ターム管理</div>
+                    <div class="sidebar-section">マスタ管理</div>
+                    <div class="sidebar-item" onclick="showScreen('P005')">講師管理</div>
+                    <div class="sidebar-item" onclick="showScreen('P006')">生徒管理</div>
+                    <div class="sidebar-item" onclick="showScreen('P007')">希望データ</div>
+                    <div class="sidebar-item" onclick="showScreen('P004')">教室設定</div>
+                </aside>
+                <main class="main">
+                    <div class="header">
+                        <h1 class="title">ダッシュボード</h1>
+                        <div class="flex gap-2">
+                            <button class="btn btn-primary" onclick="showScreen('P008')">時間割作成</button>
+                            <button class="btn btn-secondary" onclick="showScreen('P010')">振替対応</button>
+                        </div>
+                    </div>
+
+                    <!-- F011: 充足率サマリー -->
+                    <div class="card-grid mb-4">
+                        <div class="card">
+                            <div class="card-title">1対2充足率</div>
+                            <div class="card-value">87.5%</div>
+                            <div class="text-sm text-muted mt-4">前月比 +2.3%</div>
+                        </div>
+                        <div class="card">
+                            <div class="card-title">総コマ数</div>
+                            <div class="card-value">156</div>
+                            <div class="text-sm text-muted mt-4">1対2: 128 / 1対1: 28</div>
+                        </div>
+                        <div class="card">
+                            <div class="card-title">講師数 / 生徒数</div>
+                            <div class="card-value">33 / 92</div>
+                            <div class="text-sm text-muted mt-4">有効講師 / 在籍生徒</div>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-4">
+                        <!-- F012: 人員状況ヒートマップ -->
+                        <div class="card flex-1">
+                            <div class="card-title">人員状況ヒートマップ</div>
+                            <div class="heatmap">
+                                <div class="heatmap-cell heatmap-header"></div>
+                                <div class="heatmap-cell heatmap-header">月</div>
+                                <div class="heatmap-cell heatmap-header">火</div>
+                                <div class="heatmap-cell heatmap-header">水</div>
+                                <div class="heatmap-cell heatmap-header">木</div>
+                                <div class="heatmap-cell heatmap-header">金</div>
+                                <div class="heatmap-cell heatmap-header">土</div>
+
+                                <div class="heatmap-cell heatmap-label">1限</div>
+                                <div class="heatmap-cell heat-green">余裕</div>
+                                <div class="heatmap-cell heat-yellow-green">適正</div>
+                                <div class="heatmap-cell heat-green">余裕</div>
+                                <div class="heatmap-cell heat-yellow">やや不足</div>
+                                <div class="heatmap-cell heat-yellow-green">適正</div>
+                                <div class="heatmap-cell heat-green">余裕</div>
+
+                                <div class="heatmap-cell heatmap-label">2限</div>
+                                <div class="heatmap-cell heat-yellow-green">適正</div>
+                                <div class="heatmap-cell heat-red">不足</div>
+                                <div class="heatmap-cell heat-yellow">やや不足</div>
+                                <div class="heatmap-cell heat-red">不足</div>
+                                <div class="heatmap-cell heat-yellow">やや不足</div>
+                                <div class="heatmap-cell heat-yellow-green">適正</div>
+
+                                <div class="heatmap-cell heatmap-label">3限</div>
+                                <div class="heatmap-cell heat-yellow">やや不足</div>
+                                <div class="heatmap-cell heat-yellow">やや不足</div>
+                                <div class="heatmap-cell heat-yellow-green">適正</div>
+                                <div class="heatmap-cell heat-yellow-green">適正</div>
+                                <div class="heatmap-cell heat-green">余裕</div>
+                                <div class="heatmap-cell heat-yellow-green">適正</div>
+
+                                <div class="heatmap-cell heatmap-label">4限</div>
+                                <div class="heatmap-cell heat-green">余裕</div>
+                                <div class="heatmap-cell heat-green">余裕</div>
+                                <div class="heatmap-cell heat-green">余裕</div>
+                                <div class="heatmap-cell heat-yellow-green">適正</div>
+                                <div class="heatmap-cell heat-green">余裕</div>
+                                <div class="heatmap-cell heat-yellow-green">適正</div>
+                            </div>
+                        </div>
+
+                        <!-- F015: 通知・アラート -->
+                        <div class="card" style="width: 300px;">
+                            <div class="card-title">通知・アラート</div>
+                            <div style="font-size: 14px;">
+                                <div style="padding: 10px 0; border-bottom: 1px solid #eee;">
+                                    <span class="badge badge-danger">要対応</span>
+                                    <div class="mt-2">火曜2限に講師不足</div>
+                                </div>
+                                <div style="padding: 10px 0; border-bottom: 1px solid #eee;">
+                                    <span class="badge badge-warning">注意</span>
+                                    <div class="mt-2">5名の希望データ未回答</div>
+                                </div>
+                                <div style="padding: 10px 0;">
+                                    <span class="badge badge-info">情報</span>
+                                    <div class="mt-2">5月期ターム確定期限: 4/25</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- F013: 科目別カバー率 -->
+                    <div class="card mt-4">
+                        <div class="card-title">科目別カバー率</div>
+                        <div class="flex gap-4" style="flex-wrap: wrap;">
+                            <div style="flex: 1; min-width: 200px;">
+                                <div class="text-sm text-muted mb-2">小学生</div>
+                                <div style="margin-bottom: 8px;">
+                                    <div class="flex" style="justify-content: space-between; font-size: 12px;"><span>中受算数</span><span>92%</span></div>
+                                    <div class="progress"><div class="progress-bar" style="width: 92%;"></div></div>
+                                </div>
+                                <div style="margin-bottom: 8px;">
+                                    <div class="flex" style="justify-content: space-between; font-size: 12px;"><span>中受理科</span><span>78%</span></div>
+                                    <div class="progress"><div class="progress-bar" style="width: 78%; background: #f39c12;"></div></div>
+                                </div>
+                            </div>
+                            <div style="flex: 1; min-width: 200px;">
+                                <div class="text-sm text-muted mb-2">中学生</div>
+                                <div style="margin-bottom: 8px;">
+                                    <div class="flex" style="justify-content: space-between; font-size: 12px;"><span>中学英語</span><span>100%</span></div>
+                                    <div class="progress"><div class="progress-bar" style="width: 100%; background: #27ae60;"></div></div>
+                                </div>
+                                <div style="margin-bottom: 8px;">
+                                    <div class="flex" style="justify-content: space-between; font-size: 12px;"><span>公立数学</span><span>85%</span></div>
+                                    <div class="progress"><div class="progress-bar" style="width: 85%;"></div></div>
+                                </div>
+                            </div>
+                            <div style="flex: 1; min-width: 200px;">
+                                <div class="text-sm text-muted mb-2">高校生</div>
+                                <div style="margin-bottom: 8px;">
+                                    <div class="flex" style="justify-content: space-between; font-size: 12px;"><span>高校12英語</span><span>95%</span></div>
+                                    <div class="progress"><div class="progress-bar" style="width: 95%; background: #27ae60;"></div></div>
+                                </div>
+                                <div style="margin-bottom: 8px;">
+                                    <div class="flex" style="justify-content: space-between; font-size: 12px;"><span>数ⅡB</span><span>65%</span></div>
+                                    <div class="progress"><div class="progress-bar" style="width: 65%; background: #e74c3c;"></div></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </main>
+            </div>
+        </section>
+
+        <!-- P003: マネジメントダッシュボード -->
+        <section id="P003">
+            <div class="layout">
+                <aside class="sidebar">
+                    <div class="sidebar-section">マネジメント</div>
+                    <div class="sidebar-item active">ダッシュボード</div>
+                </aside>
+                <main class="main">
+                    <div class="header">
+                        <h1 class="title">マネジメントダッシュボード</h1>
+                        <select class="form-control" style="width: 200px;">
+                            <option>2025年4月期</option>
+                            <option>2025年5月期</option>
+                        </select>
+                    </div>
+
+                    <!-- F020: エリアサマリー -->
+                    <div class="card-grid mb-4">
+                        <div class="card">
+                            <div class="card-title">エリア平均充足率</div>
+                            <div class="card-value">84.2%</div>
+                        </div>
+                        <div class="card">
+                            <div class="card-title">担当教室数</div>
+                            <div class="card-value">5</div>
+                        </div>
+                        <div class="card">
+                            <div class="card-title">問題教室</div>
+                            <div class="card-value" style="color: #e74c3c;">2</div>
+                        </div>
+                    </div>
+
+                    <!-- F021: 教室別充足率一覧 -->
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>教室名</th>
+                                    <th>充足率</th>
+                                    <th>前月比</th>
+                                    <th>ステータス</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>渋谷校</td>
+                                    <td>92.3%</td>
+                                    <td style="color: #27ae60;">+3.2%</td>
+                                    <td><span class="badge badge-success">正常</span></td>
+                                    <td><button class="btn btn-sm btn-secondary">詳細</button></td>
+                                </tr>
+                                <tr>
+                                    <td>新宿校</td>
+                                    <td>87.5%</td>
+                                    <td style="color: #27ae60;">+1.5%</td>
+                                    <td><span class="badge badge-success">正常</span></td>
+                                    <td><button class="btn btn-sm btn-secondary">詳細</button></td>
+                                </tr>
+                                <tr style="background: #fff5f5;">
+                                    <td>池袋校</td>
+                                    <td>72.1%</td>
+                                    <td style="color: #e74c3c;">-5.3%</td>
+                                    <td><span class="badge badge-danger">警告</span></td>
+                                    <td><button class="btn btn-sm btn-secondary">詳細</button></td>
+                                </tr>
+                                <tr style="background: #fff5f5;">
+                                    <td>上野校</td>
+                                    <td>68.9%</td>
+                                    <td style="color: #e74c3c;">-2.1%</td>
+                                    <td><span class="badge badge-danger">危険</span></td>
+                                    <td><button class="btn btn-sm btn-secondary">詳細</button></td>
+                                </tr>
+                                <tr>
+                                    <td>品川校</td>
+                                    <td>85.4%</td>
+                                    <td style="color: #666;">±0%</td>
+                                    <td><span class="badge badge-success">正常</span></td>
+                                    <td><button class="btn btn-sm btn-secondary">詳細</button></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </main>
+            </div>
+        </section>
+
+        <!-- P004: 教室設定画面 -->
+        <section id="P004">
+            <div class="layout">
+                <aside class="sidebar">
+                    <div class="sidebar-section">メイン</div>
+                    <div class="sidebar-item" onclick="showScreen('P002')">ダッシュボード</div>
+                    <div class="sidebar-section">設定</div>
+                    <div class="sidebar-item active">教室設定</div>
+                </aside>
+                <main class="main">
+                    <div class="header">
+                        <h1 class="title">教室設定</h1>
+                        <div class="flex gap-2">
+                            <button class="btn btn-secondary">デフォルト設定適用</button>
+                            <button class="btn btn-primary">保存</button>
+                        </div>
+                    </div>
+
+                    <div class="tabs">
+                        <div class="tab active">時間枠設定</div>
+                        <div class="tab">営業曜日</div>
+                        <div class="tab">キャパシティ</div>
+                        <div class="tab">Google Form連携</div>
+                    </div>
+
+                    <!-- F030: 時間枠設定 -->
+                    <div class="flex gap-4">
+                        <div class="card flex-1">
+                            <div class="card-title">平日（月〜金）</div>
+                            <div class="form-group">
+                                <label>1限</label>
+                                <div class="flex gap-2">
+                                    <input type="time" class="form-control" value="16:00">
+                                    <span style="line-height: 40px;">〜</span>
+                                    <input type="time" class="form-control" value="17:20">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>2限</label>
+                                <div class="flex gap-2">
+                                    <input type="time" class="form-control" value="17:30">
+                                    <span style="line-height: 40px;">〜</span>
+                                    <input type="time" class="form-control" value="18:50">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>3限</label>
+                                <div class="flex gap-2">
+                                    <input type="time" class="form-control" value="19:00">
+                                    <span style="line-height: 40px;">〜</span>
+                                    <input type="time" class="form-control" value="20:20">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>4限</label>
+                                <div class="flex gap-2">
+                                    <input type="time" class="form-control" value="20:30">
+                                    <span style="line-height: 40px;">〜</span>
+                                    <input type="time" class="form-control" value="21:50">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card flex-1">
+                            <div class="card-title">土曜</div>
+                            <div class="form-group">
+                                <label>0限</label>
+                                <div class="flex gap-2">
+                                    <input type="time" class="form-control" value="13:00">
+                                    <span style="line-height: 40px;">〜</span>
+                                    <input type="time" class="form-control" value="14:20">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>1限</label>
+                                <div class="flex gap-2">
+                                    <input type="time" class="form-control" value="14:30">
+                                    <span style="line-height: 40px;">〜</span>
+                                    <input type="time" class="form-control" value="15:50">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>2限〜4限...</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- F034: Google Form連携設定 -->
+                    <div class="card mt-4">
+                        <div class="card-title">Google Form連携設定</div>
+                        <div class="flex gap-2 mb-4">
+                            <button class="btn btn-success">Google認証済み</button>
+                            <span class="text-sm text-muted" style="line-height: 40px;">最終同期: 2025/04/15 10:30</span>
+                        </div>
+                        <div class="tabs" style="border-bottom: 1px solid #e0e0e0;">
+                            <div class="tab active">講師シフト希望</div>
+                            <div class="tab">生徒受講希望</div>
+                        </div>
+                        <div class="form-group mt-4">
+                            <label>スプレッドシートURL</label>
+                            <input type="url" class="form-control" placeholder="https://docs.google.com/spreadsheets/d/...">
+                        </div>
+                        <div class="form-group">
+                            <label>シート名</label>
+                            <select class="form-control">
+                                <option>講師シフト回答</option>
+                            </select>
+                        </div>
+                        <div class="flex gap-2">
+                            <button class="btn btn-secondary">カラム自動検出</button>
+                            <button class="btn btn-primary">接続テスト</button>
+                        </div>
+                    </div>
+                </main>
+            </div>
+        </section>
+
+        <!-- P005: 講師管理画面 -->
+        <section id="P005">
+            <div class="layout">
+                <aside class="sidebar">
+                    <div class="sidebar-section">メイン</div>
+                    <div class="sidebar-item" onclick="showScreen('P002')">ダッシュボード</div>
+                    <div class="sidebar-section">マスタ管理</div>
+                    <div class="sidebar-item active">講師管理</div>
+                    <div class="sidebar-item" onclick="showScreen('P006')">生徒管理</div>
+                </aside>
+                <main class="main">
+                    <div class="header">
+                        <h1 class="title">講師管理</h1>
+                        <div class="flex gap-2">
+                            <input type="text" class="form-control" placeholder="講師名で検索" style="width: 200px;">
+                            <button class="btn btn-secondary">フィルター</button>
+                            <button class="btn btn-secondary">CSVインポート</button>
+                            <button class="btn btn-primary" onclick="document.getElementById('teacherModal').classList.add('active')">新規登録</button>
+                        </div>
+                    </div>
+
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>氏名</th>
+                                    <th>性別</th>
+                                    <th>指導可能科目</th>
+                                    <th>コマ数</th>
+                                    <th>大学ランク</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>T001</td>
+                                    <td>佐藤 一郎</td>
+                                    <td>男</td>
+                                    <td>中受算数, 中受理科</td>
+                                    <td>3〜6</td>
+                                    <td><span class="badge badge-info">A</span></td>
+                                    <td>
+                                        <button class="btn btn-sm btn-secondary">編集</button>
+                                        <button class="btn btn-sm btn-danger">削除</button>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>T002</td>
+                                    <td>田中 花子</td>
+                                    <td>女</td>
+                                    <td>中学英語, 高校12英語</td>
+                                    <td>4〜8</td>
+                                    <td><span class="badge badge-info">B</span></td>
+                                    <td>
+                                        <button class="btn btn-sm btn-secondary">編集</button>
+                                        <button class="btn btn-sm btn-danger">削除</button>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>T003</td>
+                                    <td>山田 太郎</td>
+                                    <td>男</td>
+                                    <td>公立数学, 数1A, 数ⅡB</td>
+                                    <td>2〜4</td>
+                                    <td><span class="badge badge-info">A</span></td>
+                                    <td>
+                                        <button class="btn btn-sm btn-secondary">編集</button>
+                                        <button class="btn btn-sm btn-danger">削除</button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="flex mt-4" style="justify-content: space-between; align-items: center;">
+                        <span class="text-sm text-muted">1-20 / 33件</span>
+                        <div class="flex gap-2">
+                            <button class="btn btn-sm btn-secondary">前へ</button>
+                            <button class="btn btn-sm btn-secondary">次へ</button>
+                        </div>
+                    </div>
+                </main>
+            </div>
+        </section>
+
+        <!-- P006: 生徒管理画面 -->
+        <section id="P006">
+            <div class="layout">
+                <aside class="sidebar">
+                    <div class="sidebar-section">メイン</div>
+                    <div class="sidebar-item" onclick="showScreen('P002')">ダッシュボード</div>
+                    <div class="sidebar-section">マスタ管理</div>
+                    <div class="sidebar-item" onclick="showScreen('P005')">講師管理</div>
+                    <div class="sidebar-item active">生徒管理</div>
+                </aside>
+                <main class="main">
+                    <div class="header">
+                        <h1 class="title">生徒管理</h1>
+                        <div class="flex gap-2">
+                            <input type="text" class="form-control" placeholder="生徒名で検索" style="width: 200px;">
+                            <button class="btn btn-secondary">フィルター</button>
+                            <button class="btn btn-secondary">CSVインポート</button>
+                            <button class="btn btn-primary">新規登録</button>
+                        </div>
+                    </div>
+
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>氏名</th>
+                                    <th>学年</th>
+                                    <th>受講科目</th>
+                                    <th>週コマ数</th>
+                                    <th>志望レベル</th>
+                                    <th>通塾目的</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>S001</td>
+                                    <td>鈴木 健太</td>
+                                    <td>小5</td>
+                                    <td>中受算数(2), 中受理科(1)</td>
+                                    <td>3</td>
+                                    <td><span class="badge badge-info">A</span></td>
+                                    <td>中学受験</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-secondary">編集</button>
+                                        <button class="btn btn-sm btn-danger">削除</button>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>S002</td>
+                                    <td>伊藤 美咲</td>
+                                    <td>中2</td>
+                                    <td>中学英語(1), 公立数学(1)</td>
+                                    <td>2</td>
+                                    <td><span class="badge badge-info">B</span></td>
+                                    <td>高校受験</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-secondary">編集</button>
+                                        <button class="btn btn-sm btn-danger">削除</button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </main>
+            </div>
+        </section>
+
+        <!-- P007: 希望データ確認画面 -->
+        <section id="P007">
+            <div class="layout">
+                <aside class="sidebar">
+                    <div class="sidebar-section">メイン</div>
+                    <div class="sidebar-item" onclick="showScreen('P002')">ダッシュボード</div>
+                    <div class="sidebar-section">マスタ管理</div>
+                    <div class="sidebar-item active">希望データ</div>
+                </aside>
+                <main class="main">
+                    <div class="header">
+                        <h1 class="title">希望データ確認</h1>
+                        <div class="flex gap-2">
+                            <button class="btn btn-secondary">同期</button>
+                            <span class="text-sm text-muted" style="line-height: 40px;">最終同期: 2025/04/15 10:30</span>
+                            <button class="btn btn-primary" onclick="showScreen('P008')">時間割作成へ進む</button>
+                        </div>
+                    </div>
+
+                    <div class="tabs">
+                        <div class="tab active">講師シフト希望</div>
+                        <div class="tab">生徒受講希望</div>
+                        <div class="tab">未回答者 <span class="badge badge-danger">5</span></div>
+                    </div>
+
+                    <!-- F060: 希望データマトリクス -->
+                    <div class="card" style="overflow-x: auto;">
+                        <div class="matrix" style="grid-template-columns: 120px repeat(24, 50px);">
+                            <div class="matrix-cell matrix-header">講師名</div>
+                            <div class="matrix-cell matrix-header">月1</div>
+                            <div class="matrix-cell matrix-header">月2</div>
+                            <div class="matrix-cell matrix-header">月3</div>
+                            <div class="matrix-cell matrix-header">月4</div>
+                            <div class="matrix-cell matrix-header">火1</div>
+                            <div class="matrix-cell matrix-header">火2</div>
+                            <div class="matrix-cell matrix-header">火3</div>
+                            <div class="matrix-cell matrix-header">火4</div>
+                            <div class="matrix-cell matrix-header">水1</div>
+                            <div class="matrix-cell matrix-header">水2</div>
+                            <div class="matrix-cell matrix-header">水3</div>
+                            <div class="matrix-cell matrix-header">水4</div>
+                            <div class="matrix-cell matrix-header">木1</div>
+                            <div class="matrix-cell matrix-header">木2</div>
+                            <div class="matrix-cell matrix-header">木3</div>
+                            <div class="matrix-cell matrix-header">木4</div>
+                            <div class="matrix-cell matrix-header">金1</div>
+                            <div class="matrix-cell matrix-header">金2</div>
+                            <div class="matrix-cell matrix-header">金3</div>
+                            <div class="matrix-cell matrix-header">金4</div>
+                            <div class="matrix-cell matrix-header">土0</div>
+                            <div class="matrix-cell matrix-header">土1</div>
+                            <div class="matrix-cell matrix-header">土2</div>
+                            <div class="matrix-cell matrix-header">土3</div>
+
+                            <div class="matrix-cell matrix-header">佐藤 一郎</div>
+                            <div class="matrix-cell cell-ok">○</div>
+                            <div class="matrix-cell cell-ok">○</div>
+                            <div class="matrix-cell cell-ng">×</div>
+                            <div class="matrix-cell cell-ng">×</div>
+                            <div class="matrix-cell cell-ok">○</div>
+                            <div class="matrix-cell cell-ok">○</div>
+                            <div class="matrix-cell cell-ok">○</div>
+                            <div class="matrix-cell cell-ng">×</div>
+                            <div class="matrix-cell cell-ng">×</div>
+                            <div class="matrix-cell cell-ng">×</div>
+                            <div class="matrix-cell cell-ng">×</div>
+                            <div class="matrix-cell cell-ng">×</div>
+                            <div class="matrix-cell cell-ok">○</div>
+                            <div class="matrix-cell cell-ok">○</div>
+                            <div class="matrix-cell cell-ok">○</div>
+                            <div class="matrix-cell cell-ok">○</div>
+                            <div class="matrix-cell cell-ok">○</div>
+                            <div class="matrix-cell cell-ok">○</div>
+                            <div class="matrix-cell cell-ng">×</div>
+                            <div class="matrix-cell cell-ng">×</div>
+                            <div class="matrix-cell cell-ok">○</div>
+                            <div class="matrix-cell cell-ok">○</div>
+                            <div class="matrix-cell cell-ok">○</div>
+                            <div class="matrix-cell cell-ok">○</div>
+
+                            <div class="matrix-cell matrix-header">田中 花子</div>
+                            <div class="matrix-cell cell-ng">×</div>
+                            <div class="matrix-cell cell-ng">×</div>
+                            <div class="matrix-cell cell-ok">○</div>
+                            <div class="matrix-cell cell-ok">○</div>
+                            <div class="matrix-cell cell-ok">○</div>
+                            <div class="matrix-cell cell-ok">○</div>
+                            <div class="matrix-cell cell-ok">○</div>
+                            <div class="matrix-cell cell-ok">○</div>
+                            <div class="matrix-cell cell-ok">○</div>
+                            <div class="matrix-cell cell-ok">○</div>
+                            <div class="matrix-cell cell-ok">○</div>
+                            <div class="matrix-cell cell-ok">○</div>
+                            <div class="matrix-cell cell-ng">×</div>
+                            <div class="matrix-cell cell-ng">×</div>
+                            <div class="matrix-cell cell-ok">○</div>
+                            <div class="matrix-cell cell-ok">○</div>
+                            <div class="matrix-cell cell-ok">○</div>
+                            <div class="matrix-cell cell-ok">○</div>
+                            <div class="matrix-cell cell-ok">○</div>
+                            <div class="matrix-cell cell-ok">○</div>
+                            <div class="matrix-cell cell-ng">×</div>
+                            <div class="matrix-cell cell-ng">×</div>
+                            <div class="matrix-cell cell-ng">×</div>
+                            <div class="matrix-cell cell-ng">×</div>
+                        </div>
+                    </div>
+                </main>
+            </div>
+        </section>
+
+        <!-- P008: 条件設定画面 -->
+        <section id="P008">
+            <div class="layout">
+                <aside class="sidebar">
+                    <div class="sidebar-section">メイン</div>
+                    <div class="sidebar-item" onclick="showScreen('P002')">ダッシュボード</div>
+                    <div class="sidebar-section">時間割</div>
+                    <div class="sidebar-item active">条件設定</div>
+                </aside>
+                <main class="main">
+                    <div class="header">
+                        <h1 class="title">条件設定</h1>
+                    </div>
+
+                    <!-- F070: ターム選択 -->
+                    <div class="card">
+                        <div class="card-title">ターム選択</div>
+                        <div class="flex gap-4">
+                            <label style="display: flex; align-items: center; gap: 8px;">
+                                <input type="radio" name="termType" checked> 新規ターム作成
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px;">
+                                <input type="radio" name="termType"> 既存タームを再生成
+                            </label>
+                        </div>
+                        <div class="flex gap-4 mt-4">
+                            <div class="form-group" style="flex: 1;">
+                                <label>ターム名</label>
+                                <input type="text" class="form-control" value="2025年5月期">
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label>期間</label>
+                                <div class="flex gap-2">
+                                    <input type="date" class="form-control" value="2025-05-01">
+                                    <span style="line-height: 40px;">〜</span>
+                                    <input type="date" class="form-control" value="2025-05-31">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-4 mt-4">
+                        <!-- F071: 条件入力（自然言語） -->
+                        <div class="card flex-1">
+                            <div class="card-title">条件入力（自然言語）</div>
+                            <textarea class="form-control" rows="10" placeholder="例:
+- 佐藤先生は中受算数と中受理科のみ担当
+- 山田くんは佐藤先生を希望
+- 志望レベルAの生徒には大学ランクA/Bの講師を配置
+- 1対2の充足率を90%以上にする
+- 女性講師希望の生徒には女性講師を配置"></textarea>
+                            <button class="btn btn-primary mt-4">条件を整理</button>
+                        </div>
+
+                        <!-- F072: 条件整理・構造化 -->
+                        <div class="card flex-1">
+                            <div class="card-title">整理された条件</div>
+                            <div style="font-size: 14px;">
+                                <div style="padding: 12px; background: #e3f2fd; border-radius: 6px; margin-bottom: 8px;">
+                                    <div class="flex" style="justify-content: space-between;">
+                                        <span><span class="badge badge-info">講師制約</span> 科目限定</span>
+                                        <button class="btn btn-sm btn-secondary">編集</button>
+                                    </div>
+                                    <div class="text-sm text-muted mt-2">佐藤先生 → 中受算数, 中受理科のみ</div>
+                                </div>
+                                <div style="padding: 12px; background: #e8f5e9; border-radius: 6px; margin-bottom: 8px;">
+                                    <div class="flex" style="justify-content: space-between;">
+                                        <span><span class="badge badge-success">生徒制約</span> 講師希望</span>
+                                        <button class="btn btn-sm btn-secondary">編集</button>
+                                    </div>
+                                    <div class="text-sm text-muted mt-2">山田くん → 佐藤先生を希望</div>
+                                </div>
+                                <div style="padding: 12px; background: #fff3e0; border-radius: 6px; margin-bottom: 8px;">
+                                    <div class="flex" style="justify-content: space-between;">
+                                        <span><span class="badge badge-warning">マッチング</span> 志望レベル→大学ランク</span>
+                                        <button class="btn btn-sm btn-secondary">編集</button>
+                                    </div>
+                                    <div class="text-sm text-muted mt-2">志望レベルA → 大学ランクA/B</div>
+                                </div>
+                                <div style="padding: 12px; background: #fce4ec; border-radius: 6px; margin-bottom: 8px;">
+                                    <div class="flex" style="justify-content: space-between;">
+                                        <span><span class="badge badge-secondary">時間制約</span> 充足率目標</span>
+                                        <button class="btn btn-sm btn-secondary">編集</button>
+                                    </div>
+                                    <div class="text-sm text-muted mt-2">1対2充足率 90%以上</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex mt-4" style="justify-content: flex-end;">
+                        <button class="btn btn-primary" onclick="showScreen('P009')">生成開始</button>
+                    </div>
+                </main>
+            </div>
+        </section>
+
+        <!-- P009: 時間割作成画面 -->
+        <section id="P009">
+            <div class="layout">
+                <aside class="sidebar">
+                    <div class="sidebar-section">メイン</div>
+                    <div class="sidebar-item" onclick="showScreen('P002')">ダッシュボード</div>
+                    <div class="sidebar-section">時間割</div>
+                    <div class="sidebar-item active">時間割作成</div>
+                </aside>
+                <main class="main" style="display: flex; gap: 16px;">
+                    <div style="flex: 1;">
+                        <div class="header" style="margin: -24px -24px 24px -24px; padding: 16px 24px;">
+                            <div>
+                                <h1 class="title">時間割作成</h1>
+                                <span class="text-sm text-muted">2025年5月期</span>
+                            </div>
+                            <div class="flex gap-2">
+                                <button class="btn btn-secondary" onclick="showScreen('P008')">やり直し</button>
+                                <button class="btn btn-secondary">PDF出力</button>
+                                <button class="btn btn-primary" onclick="showScreen('P002')">確定</button>
+                            </div>
+                        </div>
+
+                        <!-- F080: 生成結果サマリー -->
+                        <div class="card-grid mb-4">
+                            <div class="card">
+                                <div class="card-title">充足率</div>
+                                <div class="card-value" style="color: #27ae60;">89.2%</div>
+                            </div>
+                            <div class="card">
+                                <div class="card-title">制約違反</div>
+                                <div class="card-value">0</div>
+                            </div>
+                            <div class="card">
+                                <div class="card-title">注意点</div>
+                                <div class="card-value" style="color: #f39c12;">3</div>
+                            </div>
+                        </div>
+
+                        <!-- アルゴリズム選択 -->
+                        <div class="card mb-4">
+                            <div class="card-title">アルゴリズム設定</div>
+                            <div class="flex gap-2 mb-4">
+                                <label style="display: flex; align-items: center; gap: 6px;">
+                                    <input type="radio" name="algo" checked> 自動選択（推奨）
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 6px;">
+                                    <input type="radio" name="algo"> 手動選択
+                                </label>
+                            </div>
+                            <div class="flex gap-2" style="flex-wrap: wrap;">
+                                <div class="algorithm-card selected" style="flex: 1; min-width: 150px;">
+                                    <div class="name">遺伝的アルゴリズム</div>
+                                    <div class="desc">推奨: 中規模問題に最適</div>
+                                </div>
+                                <div class="algorithm-card" style="flex: 1; min-width: 150px;">
+                                    <div class="name">制約充足ソルバー</div>
+                                    <div class="desc">ハード制約重視</div>
+                                </div>
+                                <div class="algorithm-card" style="flex: 1; min-width: 150px;">
+                                    <div class="name">整数線形計画法</div>
+                                    <div class="desc">最適解保証</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- F082: カレンダービュー -->
+                        <div class="tabs">
+                            <div class="tab active">全体ビュー</div>
+                            <div class="tab">講師別</div>
+                            <div class="tab">生徒別</div>
+                        </div>
+                        <div class="card">
+                            <div class="calendar">
+                                <div class="calendar-cell calendar-header"></div>
+                                <div class="calendar-cell calendar-header">月</div>
+                                <div class="calendar-cell calendar-header">火</div>
+                                <div class="calendar-cell calendar-header">水</div>
+                                <div class="calendar-cell calendar-header">木</div>
+                                <div class="calendar-cell calendar-header">金</div>
+                                <div class="calendar-cell calendar-header">土</div>
+
+                                <div class="calendar-cell calendar-header">1限</div>
+                                <div class="calendar-cell">
+                                    <div class="calendar-slot">佐藤 / 鈴木・山田</div>
+                                    <div class="calendar-slot">田中 / 伊藤・佐々木</div>
+                                </div>
+                                <div class="calendar-cell">
+                                    <div class="calendar-slot">佐藤 / 高橋</div>
+                                </div>
+                                <div class="calendar-cell">
+                                    <div class="calendar-slot">山田 / 渡辺・小林</div>
+                                </div>
+                                <div class="calendar-cell">
+                                    <div class="calendar-slot conflict">田中 / 加藤</div>
+                                </div>
+                                <div class="calendar-cell">
+                                    <div class="calendar-slot">佐藤 / 吉田・山本</div>
+                                </div>
+                                <div class="calendar-cell">
+                                    <div class="calendar-slot">田中 / 中村・小川</div>
+                                </div>
+
+                                <div class="calendar-cell calendar-header">2限</div>
+                                <div class="calendar-cell">
+                                    <div class="calendar-slot">山田 / 松本・井上</div>
+                                </div>
+                                <div class="calendar-cell">
+                                    <div class="calendar-slot">佐藤 / 木村・林</div>
+                                </div>
+                                <div class="calendar-cell">
+                                    <div class="calendar-slot">田中 / 斎藤</div>
+                                </div>
+                                <div class="calendar-cell">
+                                    <div class="calendar-slot">山田 / 清水・山口</div>
+                                </div>
+                                <div class="calendar-cell">
+                                    <div class="calendar-slot">佐藤 / 池田・橋本</div>
+                                </div>
+                                <div class="calendar-cell">
+                                    <div class="calendar-slot">田中 / 阿部・石川</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- F087-F088: AIエージェントパネル -->
+                    <div style="width: 350px;">
+                        <!-- F088: 思考過程表示 -->
+                        <div class="thinking-panel mb-4">
+                            <div class="card-title">AIエージェント思考過程</div>
+                            <div class="thinking-step done">
+                                <div class="icon">✓</div>
+                                <div class="content">
+                                    <div class="title">問題分析</div>
+                                    <div class="detail">講師33名×生徒92名×26コマ</div>
+                                </div>
+                            </div>
+                            <div class="thinking-step done">
+                                <div class="icon">✓</div>
+                                <div class="content">
+                                    <div class="title">アルゴリズム選択</div>
+                                    <div class="detail">遺伝的アルゴリズム（推奨）</div>
+                                </div>
+                            </div>
+                            <div class="thinking-step active">
+                                <div class="icon">...</div>
+                                <div class="content">
+                                    <div class="title">最適化実行中</div>
+                                    <div class="detail">世代 45/100, 充足率 89.2%</div>
+                                </div>
+                            </div>
+                            <div class="thinking-step pending">
+                                <div class="icon">○</div>
+                                <div class="content">
+                                    <div class="title">評価・改善</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- F087: AIエージェント対話 -->
+                        <div class="chat-panel">
+                            <div class="card-title" style="padding: 12px 16px; border-bottom: 1px solid #e0e0e0;">AIアシスタント</div>
+                            <div class="chat-messages">
+                                <div class="chat-message agent">
+                                    <div class="bubble">時間割の生成が完了しました。充足率89.2%を達成しています。何か調整が必要ですか？</div>
+                                </div>
+                                <div class="chat-message user">
+                                    <div class="bubble">月曜3限の佐藤先生を火曜に移動できる？</div>
+                                </div>
+                                <div class="chat-message agent">
+                                    <div class="bubble">火曜1限と2限が空いています。1限は生徒Aも空いています（推奨）。どちらに移動しますか？</div>
+                                </div>
+                            </div>
+                            <div class="chat-input">
+                                <input type="text" placeholder="質問や指示を入力...">
+                                <button class="btn btn-primary btn-sm">送信</button>
+                            </div>
+                        </div>
+
+                        <!-- F089: 手動介入 -->
+                        <div class="flex gap-2 mt-4">
+                            <button class="btn btn-secondary flex-1">一時停止</button>
+                            <button class="btn btn-secondary flex-1">パラメータ調整</button>
+                        </div>
+                    </div>
+                </main>
+            </div>
+        </section>
+
+        <!-- P010: 振替対応画面 -->
+        <section id="P010">
+            <div class="layout">
+                <aside class="sidebar">
+                    <div class="sidebar-section">メイン</div>
+                    <div class="sidebar-item" onclick="showScreen('P002')">ダッシュボード</div>
+                    <div class="sidebar-section">時間割</div>
+                    <div class="sidebar-item active">振替対応</div>
+                </aside>
+                <main class="main" style="display: flex; gap: 16px;">
+                    <div style="flex: 1;">
+                        <div class="header" style="margin: -24px -24px 24px -24px; padding: 16px 24px;">
+                            <div>
+                                <h1 class="title">振替対応</h1>
+                                <select class="form-control" style="width: 200px; margin-top: 8px;">
+                                    <option>2025年5月期</option>
+                                </select>
+                            </div>
+                            <button class="btn btn-primary">欠席登録</button>
+                        </div>
+
+                        <div class="tabs">
+                            <div class="tab active">カレンダー</div>
+                            <div class="tab">履歴</div>
+                        </div>
+
+                        <!-- カレンダービュー -->
+                        <div class="card">
+                            <div class="calendar">
+                                <div class="calendar-cell calendar-header"></div>
+                                <div class="calendar-cell calendar-header">月</div>
+                                <div class="calendar-cell calendar-header">火</div>
+                                <div class="calendar-cell calendar-header">水</div>
+                                <div class="calendar-cell calendar-header">木</div>
+                                <div class="calendar-cell calendar-header">金</div>
+                                <div class="calendar-cell calendar-header">土</div>
+
+                                <div class="calendar-cell calendar-header">1限</div>
+                                <div class="calendar-cell">
+                                    <div class="calendar-slot">佐藤 / 鈴木・山田</div>
+                                </div>
+                                <div class="calendar-cell">
+                                    <div class="calendar-slot" style="background: #ffebee; border: 2px solid #ef5350;">
+                                        <s>佐藤 / 高橋</s>
+                                        <div class="text-sm" style="color: #c62828;">欠席</div>
+                                    </div>
+                                </div>
+                                <div class="calendar-cell">
+                                    <div class="calendar-slot">山田 / 渡辺・小林</div>
+                                </div>
+                                <div class="calendar-cell">
+                                    <div class="calendar-slot">田中 / 加藤・中村</div>
+                                </div>
+                                <div class="calendar-cell">
+                                    <div class="calendar-slot">佐藤 / 吉田・山本</div>
+                                </div>
+                                <div class="calendar-cell">
+                                    <div class="calendar-slot">田中 / 小川・松本</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- F091: 振替候補パネル -->
+                    <div style="width: 350px;">
+                        <div class="card">
+                            <div class="card-title">振替候補</div>
+                            <div class="text-sm text-muted mb-4">欠席: 火曜1限 佐藤先生 / 高橋くん</div>
+
+                            <div class="candidate-card recommended">
+                                <div><span class="candidate-rank">推奨</span>火曜2限 - 佐藤先生（元講師）</div>
+                                <div class="candidate-score">生徒希望: ○ | スコア: 85</div>
+                            </div>
+
+                            <div class="candidate-card">
+                                <div><span class="candidate-rank">2位</span>水曜1限 - 佐藤先生（元講師）</div>
+                                <div class="candidate-score">生徒希望: △ | スコア: 65</div>
+                            </div>
+
+                            <div class="candidate-card">
+                                <div><span class="candidate-rank">3位</span>火曜2限 - 田中先生（代替）</div>
+                                <div class="candidate-score">生徒希望: ○ | スコア: 55</div>
+                                <div class="text-sm" style="color: #e67e22; margin-top: 4px;">⚠ 中受経験なし</div>
+                            </div>
+
+                            <button class="btn btn-primary mt-4" style="width: 100%;">振替確定</button>
+                        </div>
+                    </div>
+                </main>
+            </div>
+        </section>
+
+        <!-- P011: ターム管理画面 -->
+        <section id="P011">
+            <div class="layout">
+                <aside class="sidebar">
+                    <div class="sidebar-section">メイン</div>
+                    <div class="sidebar-item" onclick="showScreen('P002')">ダッシュボード</div>
+                    <div class="sidebar-section">時間割</div>
+                    <div class="sidebar-item active">ターム管理</div>
+                </aside>
+                <main class="main">
+                    <div class="header">
+                        <h1 class="title">ターム管理</h1>
+                        <button class="btn btn-primary" onclick="showScreen('P008')">新規作成</button>
+                    </div>
+
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>ターム名</th>
+                                    <th>期間</th>
+                                    <th>充足率</th>
+                                    <th>ステータス</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>2025年5月期</td>
+                                    <td>2025/05/01 〜 2025/05/31</td>
+                                    <td>89.2%</td>
+                                    <td><span class="badge badge-success">確定</span></td>
+                                    <td>
+                                        <button class="btn btn-sm btn-secondary">詳細</button>
+                                        <button class="btn btn-sm btn-secondary">複製</button>
+                                        <button class="btn btn-sm btn-secondary" onclick="showScreen('P009')">編集</button>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>2025年4月期</td>
+                                    <td>2025/04/01 〜 2025/04/30</td>
+                                    <td>87.5%</td>
+                                    <td><span class="badge badge-secondary">アーカイブ</span></td>
+                                    <td>
+                                        <button class="btn btn-sm btn-secondary">詳細</button>
+                                        <button class="btn btn-sm btn-secondary">複製</button>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>2025年6月期</td>
+                                    <td>2025/06/01 〜 2025/06/30</td>
+                                    <td>-</td>
+                                    <td><span class="badge badge-warning">作成中</span></td>
+                                    <td>
+                                        <button class="btn btn-sm btn-secondary">詳細</button>
+                                        <button class="btn btn-sm btn-secondary" onclick="showScreen('P009')">編集</button>
+                                        <button class="btn btn-sm btn-danger">削除</button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </main>
+            </div>
+        </section>
+
+        <!-- P012: ユーザー管理画面 -->
+        <section id="P012">
+            <div class="layout">
+                <aside class="sidebar">
+                    <div class="sidebar-section">管理</div>
+                    <div class="sidebar-item active">ユーザー管理</div>
+                    <div class="sidebar-item" onclick="showScreen('P013')">教室管理</div>
+                </aside>
+                <main class="main">
+                    <div class="header">
+                        <h1 class="title">ユーザー管理</h1>
+                        <div class="flex gap-2">
+                            <input type="text" class="form-control" placeholder="ユーザー名で検索" style="width: 200px;">
+                            <button class="btn btn-primary">新規作成</button>
+                        </div>
+                    </div>
+
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>氏名</th>
+                                    <th>メールアドレス</th>
+                                    <th>役割</th>
+                                    <th>担当教室</th>
+                                    <th>ステータス</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>管理者 太郎</td>
+                                    <td>admin@school.jp</td>
+                                    <td><span class="badge badge-danger">システム管理者</span></td>
+                                    <td>-</td>
+                                    <td><span class="badge badge-success">有効</span></td>
+                                    <td>
+                                        <button class="btn btn-sm btn-secondary">編集</button>
+                                        <button class="btn btn-sm btn-secondary">リセット</button>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>渋谷 次郎</td>
+                                    <td>shibuya@school.jp</td>
+                                    <td><span class="badge badge-info">教室長</span></td>
+                                    <td>渋谷校</td>
+                                    <td><span class="badge badge-success">有効</span></td>
+                                    <td>
+                                        <button class="btn btn-sm btn-secondary">編集</button>
+                                        <button class="btn btn-sm btn-secondary">リセット</button>
+                                        <button class="btn btn-sm btn-danger">削除</button>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>東京 三郎</td>
+                                    <td>tokyo@school.jp</td>
+                                    <td><span class="badge badge-warning">エリアマネジャー</span></td>
+                                    <td>東京エリア（5校）</td>
+                                    <td><span class="badge badge-success">有効</span></td>
+                                    <td>
+                                        <button class="btn btn-sm btn-secondary">編集</button>
+                                        <button class="btn btn-sm btn-secondary">リセット</button>
+                                        <button class="btn btn-sm btn-danger">削除</button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </main>
+            </div>
+        </section>
+
+        <!-- P013: 教室マスタ管理画面 -->
+        <section id="P013">
+            <div class="layout">
+                <aside class="sidebar">
+                    <div class="sidebar-section">管理</div>
+                    <div class="sidebar-item" onclick="showScreen('P012')">ユーザー管理</div>
+                    <div class="sidebar-item active">教室管理</div>
+                </aside>
+                <main class="main">
+                    <div class="header">
+                        <h1 class="title">教室マスタ管理</h1>
+                        <div class="flex gap-2">
+                            <input type="text" class="form-control" placeholder="教室名で検索" style="width: 200px;">
+                            <button class="btn btn-primary">新規作成</button>
+                        </div>
+                    </div>
+
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>教室コード</th>
+                                    <th>教室名</th>
+                                    <th>所属エリア</th>
+                                    <th>住所</th>
+                                    <th>ステータス</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>SBY001</td>
+                                    <td>渋谷校</td>
+                                    <td><span class="badge badge-info">東京エリア</span></td>
+                                    <td>東京都渋谷区...</td>
+                                    <td><span class="badge badge-success">運営中</span></td>
+                                    <td>
+                                        <button class="btn btn-sm btn-secondary">編集</button>
+                                        <button class="btn btn-sm btn-danger">削除</button>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>SJK001</td>
+                                    <td>新宿校</td>
+                                    <td><span class="badge badge-info">東京エリア</span></td>
+                                    <td>東京都新宿区...</td>
+                                    <td><span class="badge badge-success">運営中</span></td>
+                                    <td>
+                                        <button class="btn btn-sm btn-secondary">編集</button>
+                                        <button class="btn btn-sm btn-danger">削除</button>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>IKB001</td>
+                                    <td>池袋校</td>
+                                    <td><span class="badge badge-info">東京エリア</span></td>
+                                    <td>東京都豊島区...</td>
+                                    <td><span class="badge badge-success">運営中</span></td>
+                                    <td>
+                                        <button class="btn btn-sm btn-secondary">編集</button>
+                                        <button class="btn btn-sm btn-danger">削除</button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </main>
+            </div>
+        </section>
+    </div>
+
+    <!-- 講師登録モーダル -->
+    <div class="modal" id="teacherModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">講師新規登録</h2>
+                <button class="modal-close" onclick="document.getElementById('teacherModal').classList.remove('active')">&times;</button>
+            </div>
+            <div class="form-group">
+                <label>氏名 *</label>
+                <input type="text" class="form-control" placeholder="山田 太郎">
+            </div>
+            <div class="form-group">
+                <label>性別 *</label>
+                <select class="form-control">
+                    <option>男</option>
+                    <option>女</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>指導可能科目 *</label>
+                <select class="form-control" multiple style="height: 100px;">
+                    <option>中受算数</option>
+                    <option>中受理科</option>
+                    <option>中学英語</option>
+                    <option>公立数学</option>
+                </select>
+            </div>
+            <div class="flex gap-4">
+                <div class="form-group flex-1">
+                    <label>最小コマ/週 *</label>
+                    <input type="number" class="form-control" value="3">
+                </div>
+                <div class="form-group flex-1">
+                    <label>最大コマ/週 *</label>
+                    <input type="number" class="form-control" value="6">
+                </div>
+                <div class="form-group flex-1">
+                    <label>最大連続コマ *</label>
+                    <input type="number" class="form-control" value="2">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>大学ランク</label>
+                <select class="form-control">
+                    <option>-</option>
+                    <option>A</option>
+                    <option>B</option>
+                    <option>C</option>
+                </select>
+            </div>
+            <div class="flex gap-4">
+                <label style="display: flex; align-items: center; gap: 6px;">
+                    <input type="checkbox"> 中学受験経験
+                </label>
+                <label style="display: flex; align-items: center; gap: 6px;">
+                    <input type="checkbox"> 高校受験経験
+                </label>
+            </div>
+            <div class="flex gap-2 mt-4" style="justify-content: flex-end;">
+                <button class="btn btn-secondary" onclick="document.getElementById('teacherModal').classList.remove('active')">キャンセル</button>
+                <button class="btn btn-primary" onclick="document.getElementById('teacherModal').classList.remove('active')">登録</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showScreen(screenId) {
+            // すべてのセクションを非表示
+            document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
+            // 選択したセクションを表示
+            document.getElementById(screenId).classList.add('active');
+            // セレクターとラベルを更新
+            document.getElementById('screenSelector').value = screenId;
+            document.getElementById('currentScreenName').textContent =
+                document.querySelector(`option[value="${screenId}"]`).textContent;
+        }
+    </script>
+</body>
+</html>
