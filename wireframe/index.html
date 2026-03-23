@@ -595,6 +595,7 @@
                             <input type="text" class="form-control" placeholder="講師名で検索" style="width: 200px;">
                             <button class="btn btn-secondary">フィルター</button>
                             <button class="btn btn-secondary">CSVインポート</button>
+                            <button class="btn btn-secondary">CSVエクスポート</button>
                             <button class="btn btn-primary" onclick="document.getElementById('teacherModal').classList.add('active')">新規登録</button>
                         </div>
                     </div>
@@ -680,6 +681,7 @@
                             <input type="text" class="form-control" placeholder="生徒名で検索" style="width: 200px;">
                             <button class="btn btn-secondary">フィルター</button>
                             <button class="btn btn-secondary">CSVインポート</button>
+                            <button class="btn btn-secondary">CSVエクスポート</button>
                             <button class="btn btn-primary">新規登録</button>
                         </div>
                     </div>
@@ -884,11 +886,32 @@
                         </div>
                     </div>
 
-                    <div class="flex gap-4 mt-4">
-                        <!-- F071: 条件入力（自然言語） -->
-                        <div class="card flex-1">
-                            <div class="card-title">条件入力（自然言語）</div>
-                            <textarea class="form-control" rows="10" placeholder="例:
+                    <!-- F072: ハード制約表示（自動適用） -->
+                    <div class="card mt-4" style="background: #f5f5f5; border: 2px solid #90a4ae;">
+                        <div class="card-title" style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 16px;">🔒</span> 自動適用中のハード制約（変更不可）
+                        </div>
+                        <div class="flex gap-2" style="flex-wrap: wrap;">
+                            <div class="badge" style="background: #cfd8dc; color: #37474f; padding: 8px 12px;">H001: 科目適合</div>
+                            <div class="badge" style="background: #cfd8dc; color: #37474f; padding: 8px 12px;">H002: 学年適合</div>
+                            <div class="badge" style="background: #cfd8dc; color: #37474f; padding: 8px 12px;">H003: 講師出勤可能時間</div>
+                            <div class="badge" style="background: #cfd8dc; color: #37474f; padding: 8px 12px;">H004: 生徒通塾可能時間</div>
+                            <div class="badge" style="background: #cfd8dc; color: #37474f; padding: 8px 12px;">H005: NG組み合わせ禁止</div>
+                        </div>
+                        <div class="text-sm text-muted mt-2">これらの制約は時間割生成時に常に適用されます。無効化・変更はできません。</div>
+                    </div>
+
+                    <!-- F071: ソフト制約入力（タブ切り替え） -->
+                    <div class="card mt-4">
+                        <div class="card-title">ソフト制約の追加</div>
+                        <div class="tabs">
+                            <div class="tab active" onclick="showConstraintInput('natural')">自然言語入力</div>
+                            <div class="tab" onclick="showConstraintInput('selection')">選択式入力</div>
+                        </div>
+
+                        <!-- F071-1: 自然言語入力 -->
+                        <div id="naturalInput" style="display: block;">
+                            <textarea class="form-control mt-4" rows="8" placeholder="例:
 - 佐藤先生は中受算数と中受理科のみ担当
 - 山田くんは佐藤先生を希望
 - 志望レベルAの生徒には大学ランクA/Bの講師を配置
@@ -897,35 +920,82 @@
                             <button class="btn btn-primary mt-4">条件を整理</button>
                         </div>
 
-                        <!-- F072: 条件整理・構造化 -->
+                        <!-- F071-2: 選択式入力 -->
+                        <div id="selectionInput" style="display: none;">
+                            <div class="tabs mt-4" style="border-bottom: 1px solid #e0e0e0;">
+                                <div class="tab active">講師制約</div>
+                                <div class="tab">生徒制約</div>
+                                <div class="tab">マッチング</div>
+                                <div class="tab">時間制約</div>
+                            </div>
+                            <div class="flex gap-2 mt-4" style="flex-wrap: wrap;">
+                                <div class="algorithm-card" style="flex: 1; min-width: 200px; cursor: pointer;">
+                                    <div class="name">C001: 科目限定</div>
+                                    <div class="desc">講師の担当科目を限定</div>
+                                </div>
+                                <div class="algorithm-card" style="flex: 1; min-width: 200px; cursor: pointer;">
+                                    <div class="name">C002: コマ数固定</div>
+                                    <div class="desc">講師の週コマ数を指定</div>
+                                </div>
+                                <div class="algorithm-card" style="flex: 1; min-width: 200px; cursor: pointer;">
+                                    <div class="name">C003: 連続コマ上限</div>
+                                    <div class="desc">講師の連続コマ数を制限</div>
+                                </div>
+                                <div class="algorithm-card" style="flex: 1; min-width: 200px; cursor: pointer;">
+                                    <div class="name">C004: 曜日限定</div>
+                                    <div class="desc">講師の出勤曜日を限定</div>
+                                </div>
+                            </div>
+                            <button class="btn btn-primary mt-4">制約を追加</button>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-4 mt-4">
+                        <!-- F072: 設定済みソフト制約一覧 -->
                         <div class="card flex-1">
-                            <div class="card-title">整理された条件</div>
+                            <div class="card-title">設定済みソフト制約</div>
                             <div style="font-size: 14px;">
                                 <div style="padding: 12px; background: #e3f2fd; border-radius: 6px; margin-bottom: 8px;">
                                     <div class="flex" style="justify-content: space-between;">
                                         <span><span class="badge badge-info">講師制約</span> 科目限定</span>
-                                        <button class="btn btn-sm btn-secondary">編集</button>
+                                        <div class="flex gap-2">
+                                            <span class="badge badge-secondary text-sm">自然言語</span>
+                                            <button class="btn btn-sm btn-secondary">編集</button>
+                                            <button class="btn btn-sm btn-danger">削除</button>
+                                        </div>
                                     </div>
                                     <div class="text-sm text-muted mt-2">佐藤先生 → 中受算数, 中受理科のみ</div>
                                 </div>
                                 <div style="padding: 12px; background: #e8f5e9; border-radius: 6px; margin-bottom: 8px;">
                                     <div class="flex" style="justify-content: space-between;">
                                         <span><span class="badge badge-success">生徒制約</span> 講師希望</span>
-                                        <button class="btn btn-sm btn-secondary">編集</button>
+                                        <div class="flex gap-2">
+                                            <span class="badge badge-secondary text-sm">選択式</span>
+                                            <button class="btn btn-sm btn-secondary">編集</button>
+                                            <button class="btn btn-sm btn-danger">削除</button>
+                                        </div>
                                     </div>
                                     <div class="text-sm text-muted mt-2">山田くん → 佐藤先生を希望</div>
                                 </div>
                                 <div style="padding: 12px; background: #fff3e0; border-radius: 6px; margin-bottom: 8px;">
                                     <div class="flex" style="justify-content: space-between;">
                                         <span><span class="badge badge-warning">マッチング</span> 志望レベル→大学ランク</span>
-                                        <button class="btn btn-sm btn-secondary">編集</button>
+                                        <div class="flex gap-2">
+                                            <span class="badge badge-secondary text-sm">自然言語</span>
+                                            <button class="btn btn-sm btn-secondary">編集</button>
+                                            <button class="btn btn-sm btn-danger">削除</button>
+                                        </div>
                                     </div>
                                     <div class="text-sm text-muted mt-2">志望レベルA → 大学ランクA/B</div>
                                 </div>
                                 <div style="padding: 12px; background: #fce4ec; border-radius: 6px; margin-bottom: 8px;">
                                     <div class="flex" style="justify-content: space-between;">
                                         <span><span class="badge badge-secondary">時間制約</span> 充足率目標</span>
-                                        <button class="btn btn-sm btn-secondary">編集</button>
+                                        <div class="flex gap-2">
+                                            <span class="badge badge-secondary text-sm">自然言語</span>
+                                            <button class="btn btn-sm btn-secondary">編集</button>
+                                            <button class="btn btn-sm btn-danger">削除</button>
+                                        </div>
                                     </div>
                                     <div class="text-sm text-muted mt-2">1対2充足率 90%以上</div>
                                 </div>
@@ -1506,6 +1576,24 @@
             document.getElementById('screenSelector').value = screenId;
             document.getElementById('currentScreenName').textContent =
                 document.querySelector(`option[value="${screenId}"]`).textContent;
+        }
+
+        function showConstraintInput(type) {
+            const naturalInput = document.getElementById('naturalInput');
+            const selectionInput = document.getElementById('selectionInput');
+            const tabs = document.querySelectorAll('#P008 .card .tabs .tab');
+
+            if (type === 'natural') {
+                naturalInput.style.display = 'block';
+                selectionInput.style.display = 'none';
+                tabs[0].classList.add('active');
+                tabs[1].classList.remove('active');
+            } else {
+                naturalInput.style.display = 'none';
+                selectionInput.style.display = 'block';
+                tabs[0].classList.remove('active');
+                tabs[1].classList.add('active');
+            }
         }
     </script>
 </body>

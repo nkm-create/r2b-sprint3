@@ -645,6 +645,32 @@ CSVインポート確定
 }
 ```
 
+### GET /classrooms/{classroom_id}/teachers/export
+
+講師CSVエクスポート
+
+**Query Parameters**
+| パラメータ | 型 | 説明 |
+|-----------|-----|------|
+| scope | string | 'all': 全件, 'filtered': 現在のフィルター条件に合致するもの |
+| subject_id | string | 指導可能科目でフィルター（scope=filteredの場合） |
+| grade | string | 指導可能学年でフィルター（scope=filteredの場合） |
+| gender | string | 性別でフィルター（scope=filteredの場合） |
+| status | string | ステータスでフィルター（scope=filteredの場合） |
+
+**Response 200** (text/csv)
+```csv
+講師ID,氏名,性別,指導可能科目,指導可能学年,最小コマ,最大コマ,最大連続コマ,大学ランク,中受経験,高受経験,ステータス
+T001,佐藤一郎,男,"中受算数,中受理科","小4,小5,小6",3,6,2,A,true,false,active
+T002,田中花子,女,"中学英語,高校12英語","中1,中2,中3,高1,高2",4,8,3,B,false,true,active
+```
+
+**Response Headers**
+```
+Content-Disposition: attachment; filename="teachers_20250401.csv"
+Content-Type: text/csv; charset=utf-8
+```
+
 ---
 
 ## 7. 生徒 API
@@ -735,6 +761,33 @@ CSVインポート確定
 ### POST /classrooms/{classroom_id}/students/import/confirm
 
 CSVインポート確定
+
+### GET /classrooms/{classroom_id}/students/export
+
+生徒CSVエクスポート
+
+**Query Parameters**
+| パラメータ | 型 | 説明 |
+|-----------|-----|------|
+| scope | string | 'all': 全件, 'filtered': 現在のフィルター条件に合致するもの |
+| grade | string | 学年でフィルター（scope=filteredの場合） |
+| subject_id | string | 受講科目でフィルター（scope=filteredの場合） |
+| aspiration_level | string | 志望レベルでフィルター（scope=filteredの場合） |
+| purpose | string | 通塾目的でフィルター（scope=filteredの場合） |
+| status | string | ステータスでフィルター（scope=filteredの場合） |
+
+**Response 200** (text/csv)
+```csv
+生徒ID,氏名,学年,受講科目,科目別コマ数,最大連続コマ,希望講師,NG講師,講師希望性別,志望レベル,通塾目的,ステータス
+S001,鈴木健太,小5,"中受算数,中受理科","2,1",2,佐藤一郎,,指定なし,A,中学受験,enrolled
+S002,伊藤美咲,中2,"中学英語,公立数学","1,1",2,,,female,B,高校受験,enrolled
+```
+
+**Response Headers**
+```
+Content-Disposition: attachment; filename="students_20250401.csv"
+Content-Type: text/csv; charset=utf-8
+```
 
 ---
 
@@ -1025,45 +1078,92 @@ Google Form同期
 **Query Parameters**
 | パラメータ | 型 | 説明 |
 |-----------|-----|------|
+| kind | string | 種別でフィルター（'hard', 'soft'） |
 | category | string | カテゴリでフィルター（'teacher', 'student', 'matching', 'time'） |
 
 **Response 200**
 ```json
 {
-  "data": [
-    {
-      "id": "uuid",
-      "code": "C001",
-      "category": "teacher",
-      "name": "科目限定",
-      "description": "講師の担当科目を限定",
-      "parameters_schema": {
-        "type": "object",
-        "properties": {
-          "teacher_id": { "type": "string", "format": "uuid" },
-          "subject_ids": { "type": "array", "items": { "type": "string" } }
-        },
-        "required": ["teacher_id", "subject_ids"]
+  "data": {
+    "hard_constraints": [
+      {
+        "id": "uuid",
+        "code": "H001",
+        "kind": "hard",
+        "category": "matching",
+        "name": "科目適合",
+        "description": "講師の指導可能科目に、生徒の受講科目が含まれていること"
       },
-      "example": "佐藤先生は中受算数と中受理科のみ担当"
-    },
-    {
-      "id": "uuid",
-      "code": "C010",
-      "category": "student",
-      "name": "講師希望",
-      "description": "特定講師を希望",
-      "parameters_schema": {
-        "type": "object",
-        "properties": {
-          "student_id": { "type": "string", "format": "uuid" },
-          "teacher_id": { "type": "string", "format": "uuid" }
-        },
-        "required": ["student_id", "teacher_id"]
+      {
+        "id": "uuid",
+        "code": "H002",
+        "kind": "hard",
+        "category": "matching",
+        "name": "学年適合",
+        "description": "講師の指導可能学年に、生徒の学年が含まれていること"
       },
-      "example": "山田くんは佐藤先生を希望"
-    }
-  ]
+      {
+        "id": "uuid",
+        "code": "H003",
+        "kind": "hard",
+        "category": "teacher",
+        "name": "講師出勤可能時間",
+        "description": "講師は出勤可能な時間帯（シフト希望で○）にのみ配置"
+      },
+      {
+        "id": "uuid",
+        "code": "H004",
+        "kind": "hard",
+        "category": "student",
+        "name": "生徒通塾可能時間",
+        "description": "生徒は通塾可能な時間帯（受講希望で○または△）にのみ配置"
+      },
+      {
+        "id": "uuid",
+        "code": "H005",
+        "kind": "hard",
+        "category": "matching",
+        "name": "NG組み合わせ禁止",
+        "description": "講師-生徒のNG組み合わせは配置禁止"
+      }
+    ],
+    "soft_constraints": [
+      {
+        "id": "uuid",
+        "code": "C001",
+        "kind": "soft",
+        "category": "teacher",
+        "name": "科目限定",
+        "description": "講師の担当科目を限定",
+        "parameters_schema": {
+          "type": "object",
+          "properties": {
+            "teacher_id": { "type": "string", "format": "uuid" },
+            "subject_ids": { "type": "array", "items": { "type": "string" } }
+          },
+          "required": ["teacher_id", "subject_ids"]
+        },
+        "example": "佐藤先生は中受算数と中受理科のみ担当"
+      },
+      {
+        "id": "uuid",
+        "code": "C010",
+        "kind": "soft",
+        "category": "student",
+        "name": "講師希望",
+        "description": "特定講師を希望",
+        "parameters_schema": {
+          "type": "object",
+          "properties": {
+            "student_id": { "type": "string", "format": "uuid" },
+            "teacher_id": { "type": "string", "format": "uuid" }
+          },
+          "required": ["student_id", "teacher_id"]
+        },
+        "example": "山田くんは佐藤先生を希望"
+      }
+    ]
+  }
 }
 ```
 
@@ -1074,20 +1174,68 @@ Google Form同期
 **Response 200**
 ```json
 {
-  "data": [
-    {
-      "id": "uuid",
-      "constraint_type": "C001",
-      "parameters": {
-        "teacher_id": "uuid",
-        "subject_ids": ["uuid", "uuid"]
+  "data": {
+    "hard_constraints": [
+      {
+        "code": "H001",
+        "name": "科目適合",
+        "description": "講師の指導可能科目に、生徒の受講科目が含まれていること",
+        "is_always_active": true
       },
-      "source_text": "佐藤先生は中受算数と中受理科のみ担当",
-      "confidence": 0.95,
-      "priority": 8,
-      "is_active": true
-    }
-  ]
+      {
+        "code": "H002",
+        "name": "学年適合",
+        "description": "講師の指導可能学年に、生徒の学年が含まれていること",
+        "is_always_active": true
+      },
+      {
+        "code": "H003",
+        "name": "講師出勤可能時間",
+        "description": "講師は出勤可能な時間帯（シフト希望で○）にのみ配置",
+        "is_always_active": true
+      },
+      {
+        "code": "H004",
+        "name": "生徒通塾可能時間",
+        "description": "生徒は通塾可能な時間帯（受講希望で○または△）にのみ配置",
+        "is_always_active": true
+      },
+      {
+        "code": "H005",
+        "name": "NG組み合わせ禁止",
+        "description": "講師-生徒のNG組み合わせは配置禁止",
+        "is_always_active": true
+      }
+    ],
+    "soft_constraints": [
+      {
+        "id": "uuid",
+        "constraint_type": "C001",
+        "parameters": {
+          "teacher_id": "uuid",
+          "subject_ids": ["uuid", "uuid"]
+        },
+        "source_type": "natural_language",
+        "source_text": "佐藤先生は中受算数と中受理科のみ担当",
+        "confidence": 0.95,
+        "priority": 8,
+        "is_active": true
+      },
+      {
+        "id": "uuid",
+        "constraint_type": "C010",
+        "parameters": {
+          "student_id": "uuid",
+          "teacher_id": "uuid"
+        },
+        "source_type": "selection",
+        "source_text": null,
+        "confidence": null,
+        "priority": 5,
+        "is_active": true
+      }
+    ]
+  }
 }
 ```
 
