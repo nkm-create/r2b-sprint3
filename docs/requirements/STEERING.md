@@ -1,19 +1,26 @@
-# Design フェーズ ステアリングドキュメント
+# Sprint 3 ステアリングドキュメント
 
-> このドキュメントは Sprint 3 の設計フェーズ全体を管理するためのガイドです。
-> 進捗状況、各ステップの概要、成果物の依存関係を記録します。
+> このドキュメントは Sprint 3 全体を管理するためのガイドです。
+> Design フェーズと Build フェーズの進捗状況、各ステップの概要、成果物の依存関係を記録します。
 
 ---
 
 ## 目次
 
+### Design フェーズ
 1. [Design フェーズ概要](#design-フェーズ概要)
 2. [ワイヤーフレーム（任意・随時実行可）](#ワイヤーフレーム任意随時実行可)
 3. [設計フロー全体像](#設計フロー全体像)
 4. [各ステップ詳細](#各ステップ詳細)
-5. [進捗トラッカー](#進捗トラッカー)
+5. [Design 進捗トラッカー](#design-進捗トラッカー)
 6. [成果物一覧](#成果物一覧)
 7. [依存関係図](#依存関係図)
+
+### Build フェーズ
+8. [Build フェーズ概要](#build-フェーズ概要)
+9. [Foundation Phase](#foundation-phase)
+10. [Feature Slices](#feature-slices)
+11. [Build 進捗トラッカー](#build-進捗トラッカー)
 
 ---
 
@@ -220,12 +227,12 @@ wireframe/
 #### 10. データ一覧 `/design-data`
 
 
-| 項目   | 内容                  |
-| ---- | ------------------- |
-| 目的   | システム全体のデータ項目を整理する   |
-| 依存   | IPO一覧               |
-| 成果物  | `data/data-list.md` |
-| 主な内容 | エンティティ一覧、属性、データ型、制約 |
+| 項目   | 内容                       |
+| ---- | ------------------------ |
+| 目的   | システム全体のデータ項目を整理する        |
+| 依存   | IPO一覧                    |
+| 成果物  | `data-list/data-list.md` |
+| 主な内容 | エンティティ一覧、属性、データ型、制約      |
 
 
 #### 11. クラウド構成図 `/design-cloud`
@@ -302,11 +309,11 @@ wireframe/
 | 7   | プロダクト定義レビュー | ✅ 完了  | 2026-03-21 | P008仕様書更新、journey.md更新、P003ドリルダウン追加、P007参照明確化                  |
 | 8   | 運用方針定義      | ✅ 完了  | 2026-03-21 | operations/operations-policy.md（12章構成）                        |
 | 9   | IPO一覧       | ✅ 完了  | 2026-03-22 | ipo/ipo.md（F001〜F123、共通処理、外部連携）                  |
-| 10  | データ一覧       | ✅ 完了  | 2026-03-23 | data/data-list.md（29エンティティ、ENUM定義、科目マスタ、整合性検証完了）        |
+| 10  | データ一覧       | ✅ 完了  | 2026-03-24 | data-list/data-list.md（29エンティティ、27ENUM、27科目、整合性検証完了）        |
 | 11  | クラウド構成図     | ✅ 完了  | 2026-03-23 | cloud/cloud-architecture.md（VPC設計、ECS/RDS/Redis、セキュリティ、監視、DR）        |
-| 12  | DB設計書       | ⬜ 未着手 | -          |                                                                |
-| 13  | 要件定義書 v2    | ⬜ 未着手 | -          |                                                                |
-| 14  | API設計書      | ⬜ 未着手 | -          |                                                                |
+| 12  | DB設計書       | ✅ 完了  | 2026-03-24 | database/database-design.md（29テーブル、ER図、ENUM、インデックス、整合性検証完了）                                                                |
+| 13  | 要件定義書 v2    | ✅ 完了  | 2026-03-25 | requirements-v2/*.md（15画面+共通機能、DB設計・IPO整合性検証完了）               |
+| 14  | API設計書      | ✅ 完了  | 2026-03-25 | api/api-design.md（81エンドポイント、14カテゴリ、認証・共通パターン・エラーコード定義）        |
 | 15  | 実装設計レビュー    | ⬜ 未着手 | -          |                                                                |
 
 
@@ -343,7 +350,7 @@ docs/requirements/
 │   └── operations-policy.md             # 運用方針
 ├── ipo/
 │   └── ipo.md                           # IPO一覧
-├── data/
+├── data-list/
 │   └── data-list.md                     # データ項目一覧
 ├── cloud/
 │   └── cloud-architecture.md            # クラウド構成図
@@ -404,6 +411,231 @@ graph TD
 
 ---
 
+## Build フェーズ概要
+
+Build フェーズは、Design フェーズで作成した設計ドキュメントを元に実際のシステムを構築します。
+**Foundation Phase** と **Feature Slices** の2つのフェーズで構成されます。
+
+### 2つのフェーズ
+
+| フェーズ | 範囲 | 目的 |
+|---------|------|------|
+| **Foundation Phase** | Slice 0-1〜0-7 | 開発基盤の構築（環境、認証、DB、IaC） |
+| **Feature Slices** | Slice 1〜N | 機能単位での垂直スライス実装 |
+
+### アーキテクチャ
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                           Frontend                                  │
+│                    Next.js 14+ (App Router)                        │
+│         TypeScript / TailwindCSS / React Query / Zustand           │
+└─────────────────────────────────────────────────────────────────────┘
+                                   │
+                                   ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                            Backend                                  │
+│                    FastAPI (Python 3.11+)                          │
+│              3層アーキテクチャ: API → Service → Repository           │
+└─────────────────────────────────────────────────────────────────────┘
+                                   │
+                                   ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                           Database                                  │
+│                   PostgreSQL 16 + Redis                            │
+│               SQLAlchemy + Alembic Migrations                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Foundation Phase
+
+Foundation Phase は開発基盤を構築するフェーズです。
+すべての Feature Slice の前提条件となります。
+
+### Slice 一覧
+
+| Slice | 名称 | 目的 | 主な成果物 |
+|-------|------|------|-----------|
+| 0-1 | Dev Environment | ローカル開発環境の構築 | Docker Compose, .env, Makefile |
+| 0-2 | Backend Scaffolding | バックエンド基盤の構築 | FastAPI プロジェクト構造, 3層アーキテクチャ |
+| 0-3 | Database Implementation | DB設計の実装 | SQLAlchemy ORM モデル, Alembic マイグレーション |
+| 0-4 | Authentication | 認証基盤の実装 | JWT認証, ログイン/ログアウト, パスワード管理 |
+| 0-5 | Frontend Setup | フロントエンド基盤の構築 | Next.js プロジェクト, 共通コンポーネント |
+| 0-6 | API Integration | API連携基盤の実装 | API クライアント, エラーハンドリング |
+| 0-7 | Infrastructure as Code | AWS IaC の構築 | Terraform モジュール, CI/CD パイプライン |
+
+### Slice 0-1: Dev Environment
+
+| 項目 | 内容 |
+|------|------|
+| 目的 | ローカル開発環境をDocker Composeで構築 |
+| 依存 | なし |
+| 成果物 | `docker-compose.yml`, `.env.example`, `Makefile` |
+| 主な内容 | PostgreSQL 16-alpine, Redis, Backend/Frontend コンテナ定義 |
+
+### Slice 0-2: Backend Scaffolding
+
+| 項目 | 内容 |
+|------|------|
+| 目的 | FastAPI プロジェクトの基盤構築 |
+| 依存 | Slice 0-1 |
+| 成果物 | `backend/app/` ディレクトリ構造 |
+| 主な内容 | 3層アーキテクチャ（API → Service → Repository）, 設定管理, DB接続 |
+
+**ディレクトリ構造:**
+```
+backend/
+├── app/
+│   ├── api/v1/           # APIエンドポイント
+│   ├── core/             # 設定、セキュリティ、DB接続
+│   ├── models/           # SQLAlchemy ORM モデル
+│   ├── repositories/     # データアクセス層
+│   ├── schemas/          # Pydantic スキーマ
+│   └── services/         # ビジネスロジック層
+├── alembic/              # DBマイグレーション
+├── scripts/              # ユーティリティスクリプト
+└── tests/                # テストコード
+```
+
+### Slice 0-3: Database Implementation
+
+| 項目 | 内容 |
+|------|------|
+| 目的 | DB設計書（29テーブル）をSQLAlchemyモデルとして実装 |
+| 依存 | Slice 0-2, DB設計書 |
+| 成果物 | `app/models/*.py`, Alembic マイグレーション |
+| 主な内容 | 29テーブルのORMモデル, 33 ENUM型, 初期マイグレーション, シードデータ |
+
+**モデルファイル構成:**
+- `enums.py` - 33のENUM型定義
+- `users.py` - User, PasswordResetToken, RefreshToken
+- `classrooms.py` - Area, Classroom, ClassroomSettings, TimeSlot, GoogleFormConnection, UserClassroom, UserArea
+- `teachers.py` - Teacher（バージョン管理）, TeacherSubject, TeacherGrade
+- `students.py` - Student（バージョン管理）, StudentSubject
+- `subjects.py` - Subject, NgRelation
+- `preferences.py` - TeacherShiftPreference, StudentPreference
+- `schedules.py` - Term, TermConstraint, Policy, PolicyTemplate, Schedule, ScheduleSlot, Absence, Substitution
+- `notifications.py` - Notification, AuditLog
+
+### Slice 0-4: Authentication
+
+| 項目 | 内容 |
+|------|------|
+| 目的 | P001ログイン画面の要件に基づく認証基盤の実装 |
+| 依存 | Slice 0-3, 要件定義書v2 P001 |
+| 成果物 | `app/core/auth.py`, `app/services/auth.py`, `app/api/v1/auth.py` |
+| 主な内容 | JWT + HttpOnly Cookie認証, bcrypt(cost=12), リフレッシュトークン, パスワードリセット |
+
+**認証フロー:**
+```
+POST /api/v1/auth/login          → アクセストークン + リフレッシュトークン発行
+POST /api/v1/auth/refresh        → アクセストークン再発行
+POST /api/v1/auth/logout         → リフレッシュトークン無効化
+POST /api/v1/auth/password/change → パスワード変更
+POST /api/v1/auth/password-reset/request → リセットトークン発行
+POST /api/v1/auth/password-reset/execute → パスワードリセット実行
+GET  /api/v1/auth/me             → 現在のユーザー情報取得
+```
+
+### Slice 0-5: Frontend Setup
+
+| 項目 | 内容 |
+|------|------|
+| 目的 | Next.js フロントエンド基盤の構築 |
+| 依存 | Slice 0-1 |
+| 成果物 | `frontend/` ディレクトリ構造 |
+| 主な内容 | Next.js 14 (App Router), TypeScript, TailwindCSS, shadcn/ui |
+
+### Slice 0-6: API Integration
+
+| 項目 | 内容 |
+|------|------|
+| 目的 | Frontend-Backend API連携基盤の実装 |
+| 依存 | Slice 0-4, Slice 0-5 |
+| 成果物 | APIクライアント, 認証フック, エラーハンドリング |
+| 主な内容 | React Query, Axios interceptors, トークンリフレッシュ |
+
+### Slice 0-7: Infrastructure as Code
+
+| 項目 | 内容 |
+|------|------|
+| 目的 | AWS インフラをTerraformで構築 |
+| 依存 | クラウド構成図 |
+| 成果物 | `infrastructure/terraform/` |
+| 主な内容 | VPC, ECS Fargate, RDS PostgreSQL, ElastiCache Redis, ALB, CloudFront |
+
+---
+
+## Feature Slices
+
+Feature Slices は機能単位での垂直スライス実装です。
+各スライスは Frontend → Backend → Database の全レイヤーを含みます。
+
+### スライス構成（予定）
+
+| Slice | 機能 | 対応画面 | 優先度 |
+|-------|------|---------|--------|
+| 1 | ログイン・認証 | P001 | 高 |
+| 2 | ダッシュボード | P002 | 高 |
+| 3 | 教室管理 | P003 | 高 |
+| 4 | 講師管理 | P004 | 高 |
+| 5 | 生徒管理 | P005 | 高 |
+| 6 | 科目管理 | P006 | 中 |
+| 7 | 期間設定 | P007 | 中 |
+| 8 | 希望登録・集約 | P008 | 高 |
+| 9 | 時間割作成 | P009 | 最高 |
+| 10 | 時間割確認・調整 | P010 | 高 |
+| 11 | 欠席・代講管理 | P011 | 中 |
+| 12 | 通知管理 | P012 | 中 |
+| 13 | システム設定 | P013 | 低 |
+
+---
+
+## Build 進捗トラッカー
+
+> 各スライス完了時にステータスを更新してください。
+
+### Foundation Phase
+
+| Slice | 名称 | ステータス | 完了日 | 備考 |
+|-------|------|----------|--------|------|
+| 0-1 | Dev Environment | ✅ 完了 | 2026-03-25 | Docker Compose (PostgreSQL, Redis), Makefile |
+| 0-2 | Backend Scaffolding | ✅ 完了 | 2026-03-25 | FastAPI 3層アーキテクチャ, 設定管理 |
+| 0-3 | Database Implementation | ✅ 完了 | 2026-03-26 | 29テーブル ORM, マイグレーション, シードデータ |
+| 0-4 | Authentication | ✅ 完了 | 2026-03-26 | JWT認証, bcrypt, リフレッシュトークン |
+| 0-5 | Frontend Setup | ✅ 完了 | 2026-03-26 | Next.js 14, TailwindCSS, shadcn/ui, App Router |
+| 0-6 | API Integration | ✅ 完了 | 2026-03-26 | Axios, React Query, Zustand, 認証フック |
+| 0-7 | Infrastructure as Code | ✅ 完了 | 2026-03-26 | Terraform (VPC, ECS, RDS, Redis), 環境別設定 |
+
+### Feature Slices
+
+| Slice | 機能 | ステータス | 完了日 | 備考 |
+|-------|------|----------|--------|------|
+| 1 | ログイン・認証 | ✅ 完了 | 2026-03-26 | ログイン/ログアウト, パスワード変更/リセット |
+| 2 | ダッシュボード | ✅ 完了 | 2026-03-26 | 充足率, ヒートマップ, 科目カバー率, 需給バランス, 通知 |
+| 3 | 教室管理 | ⬜ 未着手 | - | |
+| 4 | 講師管理 | ⬜ 未着手 | - | |
+| 5 | 生徒管理 | ⬜ 未着手 | - | |
+| 6 | 科目管理 | ⬜ 未着手 | - | |
+| 7 | 期間設定 | ⬜ 未着手 | - | |
+| 8 | 希望登録・集約 | ⬜ 未着手 | - | |
+| 9 | 時間割作成 | ⬜ 未着手 | - | |
+| 10 | 時間割確認・調整 | ⬜ 未着手 | - | |
+| 11 | 欠席・代講管理 | ⬜ 未着手 | - | |
+| 12 | 通知管理 | ⬜ 未着手 | - | |
+| 13 | システム設定 | ⬜ 未着手 | - | |
+
+### ステータス凡例
+
+- ⬜ 未着手
+- 🔄 進行中
+- ✅ 完了
+- ⏸️ 保留
+
+---
+
 ## クイックリファレンス
 
 ### コマンド一覧
@@ -441,5 +673,9 @@ graph TD
 | 2026-03-21 | プロダクト定義フェーズ完了（ステップ7）、ステップ8以降の誤記修正 |
 | 2026-03-21 | 運用方針定義（ステップ8）完了 |
 | 2026-03-22 | IPO一覧（ステップ9）完了 |
+| 2026-03-24 | データ一覧（ステップ10）パス修正（data/ → data-list/）、DB設計書（ステップ12）完了、要件定義書v1/IPO/データ一覧/DB設計書の整合性検証完了 |
+| 2026-03-25 | 要件定義書v2（ステップ13）完了（15画面+共通機能、DB設計・データ一覧・IPO整合性検証・修正完了）、API設計書（ステップ14）完了（81エンドポイント、14カテゴリ） |
+| 2026-03-26 | Buildフェーズ開始。Foundation Phase 完了（Slice 0-1〜0-7: Dev Environment, Backend Scaffolding, Database Implementation, Authentication, Frontend Setup, API Integration, Infrastructure as Code） |
+| 2026-03-26 | Feature Slices 1-2 完了（ログイン・認証、ダッシュボード） |
 
 

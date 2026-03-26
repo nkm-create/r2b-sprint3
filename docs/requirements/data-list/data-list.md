@@ -33,31 +33,32 @@
 | 1 | User | システムユーザー | P001, P012 | - |
 | 2 | Area | エリア（複数教室のグループ） | P003, P013 | - |
 | 3 | Classroom | 教室 | P004, P013 | - |
-| 4 | ClassroomSetting | 教室設定（時間枠、営業曜日、キャパシティ） | P004 | - |
-| 5 | TimeSlot | 時間枠定義 | P004 | - |
-| 6 | GoogleFormConnection | Google Form連携設定 | P004 | - |
-| 7 | Teacher | 講師マスタ | P005 | **必須** |
-| 8 | TeacherSubject | 講師-指導可能科目（中間テーブル） | P005 | - |
-| 9 | TeacherGrade | 講師-指導可能学年（中間テーブル） | P005 | - |
-| 10 | Student | 生徒マスタ | P006 | **必須** |
-| 11 | StudentSubject | 生徒-科目別コマ数（中間テーブル） | P006 | - |
-| 12 | Subject | 科目マスタ（システム固定） | 共通 | - |
-| 13 | TeacherShiftPreference | 講師シフト希望 | P007 | 推奨 |
-| 14 | StudentPreference | 生徒受講希望 | P007 | 推奨 |
-| 15 | NGRelation | NG関係（講師-生徒） | P005, P006 | - |
-| 16 | Term | ターム | P008, P011 | - |
-| 17 | TermConstraint | ターム固有制約 | P008 | 推奨 |
-| 18 | Policy | 全体ポリシー設定 | P008 | 推奨 |
-| 19 | PolicyTemplate | ポリシーテンプレート | P008 | - |
-| 20 | Schedule | 時間割 | P009 | **必須** |
-| 21 | ScheduleSlot | 時間割コマ | P009 | - |
-| 22 | Absence | 欠席記録 | P010 | - |
-| 23 | Substitution | 振替記録 | P010 | - |
-| 24 | Notification | 通知 | P002 | - |
-| 25 | PasswordResetToken | パスワードリセットトークン | P001 | - |
-| 26 | RefreshToken | リフレッシュトークン | P001 | - |
-| 27 | UserArea | ユーザー-エリア（中間テーブル） | P003, P013 | - |
-| 28 | AuditLog | 監査ログ | 共通 | - |
+| 4 | UserClassroom | ユーザー-教室（中間テーブル） | P012, P013 | - |
+| 5 | ClassroomSetting | 教室設定（時間枠、営業曜日、キャパシティ） | P004 | - |
+| 6 | TimeSlot | 時間枠定義 | P004 | - |
+| 7 | GoogleFormConnection | Google Form連携設定 | P004 | - |
+| 8 | Teacher | 講師マスタ | P005 | **必須** |
+| 9 | TeacherSubject | 講師-指導可能科目（中間テーブル） | P005 | - |
+| 10 | TeacherGrade | 講師-指導可能学年（中間テーブル） | P005 | - |
+| 11 | Student | 生徒マスタ | P006 | **必須** |
+| 12 | StudentSubject | 生徒-科目別コマ数（中間テーブル） | P006 | - |
+| 13 | Subject | 科目マスタ（システム固定） | 共通 | - |
+| 14 | TeacherShiftPreference | 講師シフト希望 | P007 | 推奨 |
+| 15 | StudentPreference | 生徒受講希望 | P007 | 推奨 |
+| 16 | NGRelation | NG関係（講師-生徒） | P005, P006 | - |
+| 17 | Term | ターム | P008, P011 | - |
+| 18 | TermConstraint | ターム固有制約 | P008 | 推奨 |
+| 19 | Policy | 全体ポリシー設定 | P008 | 推奨 |
+| 20 | PolicyTemplate | ポリシーテンプレート | P008 | - |
+| 21 | Schedule | 時間割 | P009 | **必須** |
+| 22 | ScheduleSlot | 時間割コマ | P009 | - |
+| 23 | Absence | 欠席記録 | P010 | - |
+| 24 | Substitution | 振替記録 | P010 | - |
+| 25 | Notification | 通知 | P002 | - |
+| 26 | PasswordResetToken | パスワードリセットトークン | P001 | - |
+| 27 | RefreshToken | リフレッシュトークン | P001 | - |
+| 28 | UserArea | ユーザー-エリア（中間テーブル） | P003, P013 | - |
+| 29 | AuditLog | 監査ログ | 共通 | - |
 
 ### 2.1 バージョン管理方針
 
@@ -83,7 +84,7 @@
 | role | 役割 | ENUM | NN | ○ | classroom_manager / area_manager / system_admin |
 | status | ステータス | ENUM | NN | ○ | active / inactive |
 | login_failed_count | ログイン失敗回数 | INTEGER | | - | デフォルト0 |
-| locked_until | ロック解除日時 | TIMESTAMP | | - | 5回失敗で15分ロック |
+| locked_until | ロック解除日時 | TIMESTAMP | | - | 5回失敗で30分ロック |
 | force_password_change | 初回パスワード変更要求 | BOOLEAN | | ○ | デフォルトtrue |
 | last_login_at | 最終ログイン日時 | TIMESTAMP | | - | ログイン成功時に更新 |
 | created_at | 作成日時 | TIMESTAMP | NN | ○ | |
@@ -222,7 +223,7 @@
 | grade | 学年 | ENUM | NN | ○ | ele1〜ele6, jhs1〜jhs3, hs1〜hs3 |
 | max_consecutive_slots | 最大連続コマ | INTEGER | NN | ○ | 1〜4 |
 | preferred_teacher_id | 希望講師ID | VARCHAR(20) | FK | - | Teacher.teacher_id |
-| preferred_teacher_gender | 講師希望性別 | ENUM | | - | male / female / any |
+| preferred_teacher_gender | 講師希望性別 | preferred_gender | | - | male / female / any |
 | aspiration_level | 志望レベル | ENUM | | - | A / B / C |
 | enrollment_purpose | 通塾目的 | ENUM | | - | hs_exam / jhs_exam / internal / remedial / other |
 | status | ステータス | ENUM | NN | ○ | active / inactive |
@@ -321,12 +322,14 @@
 |--------|---------|---------|------|------|------|
 | constraint_id | 制約ID | UUID | PK | ○ | 自動生成 |
 | term_id | タームID | UUID | FK | ○ | Term.term_id |
-| target_type | 対象種別 | ENUM | NN | ○ | teacher / student |
-| target_id | 対象ID | VARCHAR(20) | NN | ○ | Teacher.teacher_id / Student.student_id |
-| constraint_type | 制約種別 | ENUM | NN | ○ | max_slots / min_slots / max_consecutive / subject_limit / day_limit / preferred_teacher / ng_teacher / gender_preference |
+| target_type | 対象種別 | ENUM | NN | ○ | teacher / student / classroom |
+| target_id | 対象ID | VARCHAR(50) | NN | ○ | Teacher.teacher_id / Student.student_id / Classroom.classroom_id |
+| constraint_type | 制約種別 | ENUM | NN | ○ | max_slots / min_slots / max_consecutive / subject_limit / day_limit / preferred_teacher / ng_teacher / gender_preference / booth_capacity |
 | constraint_value | 制約値 | JSONB | NN | ○ | 制約種別に応じた値 |
 | created_at | 作成日時 | TIMESTAMP | NN | ○ | |
 | updated_at | 更新日時 | TIMESTAMP | NN | ○ | |
+
+**備考**: target_type=classroom の場合、target_idにはclassroom_id（UUID）を格納。constraint_typeはbooth_capacityのみ有効。
 
 ### 3.19 Policy（全体ポリシー設定）
 
@@ -452,7 +455,7 @@
 | refresh_token_id | リフレッシュトークンID | UUID | PK | ○ | 自動生成 |
 | user_id | ユーザーID | UUID | FK | ○ | User.user_id |
 | token_hash | トークンハッシュ | VARCHAR(255) | NN | ○ | SHA-256 |
-| expires_at | 有効期限 | TIMESTAMP | NN | ○ | 発行から14日間 |
+| expires_at | 有効期限 | TIMESTAMP | NN | ○ | 発行から7日間 |
 | device_info | デバイス情報 | VARCHAR(500) | | - | User-Agent等 |
 | ip_address | IPアドレス | VARCHAR(45) | | - | 発行時のIP |
 | is_revoked | 失効フラグ | BOOLEAN | NN | ○ | デフォルトfalse |
@@ -520,6 +523,9 @@
 |--------|-----|------|
 | Gender | male | 男 |
 | | female | 女 |
+| PreferredGender | male | 男性講師希望 |
+| | female | 女性講師希望 |
+| | any | 指定なし |
 | Grade | ele1〜ele6 | 小学1年〜6年 |
 | | jhs1〜jhs3 | 中学1年〜3年 |
 | | hs1〜hs3 | 高校1年〜3年 |
@@ -588,6 +594,7 @@
 |--------|-----|------|
 | ConstraintTargetType | teacher | 講師 |
 | | student | 生徒 |
+| | classroom | 教室 |
 | ConstraintType | max_slots | 最大コマ数 |
 | | min_slots | 最小コマ数 |
 | | max_consecutive | 最大連続コマ |
@@ -596,6 +603,7 @@
 | | preferred_teacher | 講師希望 |
 | | ng_teacher | 講師NG |
 | | gender_preference | 性別希望 |
+| | booth_capacity | ブースキャパシティ |
 
 ### 4.9 通知関連
 
@@ -727,3 +735,4 @@
 |------|---------|
 | 2026-03-22 | 初版作成（27エンティティ、ENUM定義、科目マスタ、データ関連図） |
 | 2026-03-23 | requirements-v1/IPO一覧との整合性検証に基づく修正: RefreshToken/UserAreaエンティティ追加、Teacher/StudentのUK制約明記、GoogleFormDataType ENUM追加 |
+| 2026-03-24 | DB設計書との整合性検証に基づく修正: UserClassroomをエンティティ一覧に追加（29件に修正）、ConstraintTargetTypeにclassroom追加、ConstraintTypeにbooth_capacity追加、locked_until/expires_at/preferred_teacher_genderの非機能要件整合 |

@@ -10,7 +10,7 @@
 |------------|------|
 | functional-requirements.md | 機能要件書 |
 | requirements-v1/*.md | 各画面の要件定義書 |
-| operations-policy.md | 運用方針定義書 |
+| operations/operations-policy.md | 運用方針定義書 |
 
 ### 1.2 凡例
 
@@ -696,3 +696,4 @@
 |------|---------|
 | 2026-03-22 | 初版作成（F001〜F123、共通処理、外部連携処理） |
 | 2026-03-22 | requirements-v1との整合性検証に基づく修正（F011, F015, F021, F022, F023, F063, F080, F082, F086） |
+| 2026-03-24 | 参照ドキュメントパス修正（operations/operations-policy.md） |
