@@ -365,65 +365,99 @@ class ScheduleService:
 
         # ソルバー入力データを準備
         solver_input = await self._prepare_solver_input(classroom_id, term_id)
-        policy_map = {p.policy_type: p for p in solver_input.policies}
-        p005 = policy_map.get("P005")
-        policy_target_rate = None
-        if p005 and p005.is_enabled:
-            policy_target_rate = p005.parameters.get("target_rate")
 
-        # ソルバー設定
-        config = SolverConfig(
-            target_fulfillment_rate=(
-                int(policy_target_rate)
-                if policy_target_rate is not None
-                else options.target_fulfillment_rate
-            ),
-            max_timeout_seconds=options.max_timeout_seconds,
-            strategy=options.strategy if hasattr(options, 'strategy') else "standard",
-            enable_soft_constraints=True,
-        )
+        # Orchestrator戦略切り替え: standard(30s) → relaxed(20s) → partial(20s)
+        strategies = [
+            ("standard", min(30, options.max_timeout_seconds)),
+            ("relaxed", 20),
+            ("partial", 20),
+        ]
+
+        # 各戦略を順番に試行
+        solver_output = None
+        final_strategy = "standard"
+        total_elapsed_ms = 0
 
         # 進捗コールバック
         loop = asyncio.get_running_loop()
-
-        def on_progress(progress_data: dict):
-            if progress_callback:
-                asyncio.run_coroutine_threadsafe(
-                    progress_callback(
-                        GenerationProgress(
-                            type="progress",
-                            solutions_found=progress_data.get("solutions_found", 0),
-                            current_rate=Decimal(str(progress_data.get("current_objective", 0))),
-                            elapsed_ms=progress_data.get("elapsed_ms", 0),
-                            strategy=config.strategy,
-                        )
-                    ),
-                    loop,
-                )
 
         decisions.append(
             OrchestratorDecision(
                 time_ms=0,
                 decision="start",
                 current_rate=Decimal("0"),
-                reason="ソルバー開始",
+                reason="Orchestrator開始: 戦略切り替えモード",
             )
         )
 
-        # ソルバー実行（バックグラウンドスレッドで実行）
-        solver = ScheduleSolver(config)
+        # 各戦略を順番に試行
+        for idx, (strategy, timeout) in enumerate(strategies):
+            config = SolverConfig(
+                max_timeout_seconds=timeout,
+                strategy=strategy,
+                enable_soft_constraints=(strategy != "partial"),
+            )
 
-        # asyncioのrun_in_executorを使用してブロッキング処理を非同期化
-        solver_output = await loop.run_in_executor(
-            None,
-            lambda: solver.solve(solver_input, on_progress)
-        )
+            def on_progress(progress_data: dict, current_strategy=strategy):
+                if progress_callback:
+                    asyncio.run_coroutine_threadsafe(
+                        progress_callback(
+                            GenerationProgress(
+                                type="progress",
+                                solutions_found=progress_data.get("solutions_found", 0),
+                                current_rate=Decimal(str(progress_data.get("current_objective", 0))),
+                                elapsed_ms=progress_data.get("elapsed_ms", 0) + total_elapsed_ms,
+                                strategy=current_strategy,
+                            )
+                        ),
+                        loop,
+                    )
+
+            decisions.append(
+                OrchestratorDecision(
+                    time_ms=total_elapsed_ms,
+                    decision="try_strategy",
+                    current_rate=Decimal("0"),
+                    reason=f"戦略 '{strategy}' を試行 (タイムアウト: {timeout}s)",
+                )
+            )
+
+            # ソルバー実行
+            solver = ScheduleSolver(config)
+            solver_output = await loop.run_in_executor(
+                None,
+                lambda s=solver: s.solve(solver_input, on_progress)
+            )
+
+            strategy_elapsed = solver_output.stats.solve_time_ms if solver_output.stats else 0
+            total_elapsed_ms += strategy_elapsed
+            final_strategy = strategy
+
+            # 成功判定: optimal または feasible で解がある
+            if solver_output.status in ("optimal", "feasible") and solver_output.assignments:
+                decisions.append(
+                    OrchestratorDecision(
+                        time_ms=total_elapsed_ms,
+                        decision="strategy_success",
+                        current_rate=solver_output.soft_constraint_rate,
+                        reason=f"戦略 '{strategy}' 成功: {solver_output.status}",
+                    )
+                )
+                break
+            else:
+                decisions.append(
+                    OrchestratorDecision(
+                        time_ms=total_elapsed_ms,
+                        decision="strategy_fail",
+                        current_rate=Decimal("0"),
+                        reason=f"戦略 '{strategy}' 失敗: {solver_output.status}, 次の戦略へ",
+                    )
+                )
 
         # 結果を取得（DB制約に合わせて 0-100 に丸める）
         def _clamp_rate(rate: Decimal) -> Decimal:
             return max(Decimal("0"), min(Decimal("100"), rate))
 
-        fulfillment_rate = _clamp_rate(solver_output.fulfillment_rate)
         soft_constraint_rate = _clamp_rate(solver_output.soft_constraint_rate)
         one_to_two_rate = _clamp_rate(solver_output.one_to_two_rate)
 
@@ -433,8 +467,8 @@ class ScheduleService:
             OrchestratorDecision(
                 time_ms=elapsed_ms,
                 decision="stop",
-                current_rate=fulfillment_rate,
-                reason=f"ソルバー終了: {solver_output.status}",
+                current_rate=soft_constraint_rate,
+                reason=f"Orchestrator終了: 最終戦略 '{final_strategy}', status={solver_output.status}",
             )
         )
 
@@ -457,12 +491,11 @@ class ScheduleService:
             status=ScheduleStatus.DRAFT,
             master_snapshot=master_snapshot,
             generation_config={
-                "target_fulfillment_rate": config.target_fulfillment_rate,
                 "max_timeout_seconds": options.max_timeout_seconds,
                 "unplaced_count": len(solver_output.unplaced_students),
                 "one_to_two_rate": float(one_to_two_rate),
+                "final_strategy": final_strategy,
             },
-            fulfillment_rate=fulfillment_rate,
             soft_constraint_rate=soft_constraint_rate,
         )
         self.db.add(schedule)
@@ -478,7 +511,7 @@ class ScheduleService:
                 GenerationProgress(
                     type="complete",
                     status=solver_output.status,
-                    final_rate=fulfillment_rate,
+                    final_rate=soft_constraint_rate,
                     termination_reason=solver_output.stats.termination_reason if solver_output.stats else "unknown",
                 )
             )
@@ -489,14 +522,13 @@ class ScheduleService:
             status="draft",
             solution_status=solver_output.status,
             result=GenerationResult(
-                fulfillment_rate=fulfillment_rate,
                 soft_constraint_rate=soft_constraint_rate,
                 one_to_two_rate=one_to_two_rate,
                 unplaced_students=len(solver_output.unplaced_students),
             ),
             solver_stats=SolverStats(
-                strategy_used=solver_output.stats.strategy_used if solver_output.stats else "standard",
-                solve_time_ms=solver_output.stats.solve_time_ms if solver_output.stats else elapsed_ms,
+                strategy_used=final_strategy,
+                solve_time_ms=elapsed_ms,
                 solutions_found=solver_output.stats.solutions_found if solver_output.stats else 0,
                 optimality_gap=solver_output.stats.optimality_gap if solver_output.stats else Decimal("1.0"),
                 termination_reason=solver_output.stats.termination_reason if solver_output.stats else "unknown",
@@ -980,26 +1012,30 @@ class ScheduleService:
                 "gap": -5,
             })
 
+        # generation_configから1対2率を取得
+        one_to_two_rate_val = Decimal("78.5")
+        if schedule.generation_config and "one_to_two_rate" in schedule.generation_config:
+            one_to_two_rate_val = Decimal(str(schedule.generation_config["one_to_two_rate"]))
+
         # LLMサービスを使用して説明生成
         context = ExplanationContext(
-            fulfillment_rate=schedule.fulfillment_rate or Decimal("0"),
             soft_constraint_rate=schedule.soft_constraint_rate or Decimal("0"),
-            one_to_two_rate=Decimal("78.5"),  # 実際の計算値を使用
+            one_to_two_rate=one_to_two_rate_val,
             teacher_count=teacher_count,
             student_count=student_count,
             weekly_slots=teacher_count * 15,  # 概算
             bottlenecks=bottlenecks,
             constraint_violations=[],
-            schedule_status="optimal" if schedule.fulfillment_rate and schedule.fulfillment_rate >= 80 else "suboptimal",
+            schedule_status="optimal" if schedule.soft_constraint_rate and schedule.soft_constraint_rate >= 80 else "suboptimal",
         )
 
         llm_response = await self.llm_service.generate_explanation(context)
 
         # LLM応答をパースしてレスポンスを構築
-        fulfillment_rate = schedule.fulfillment_rate or Decimal("0")
+        soft_rate = schedule.soft_constraint_rate or Decimal("0")
         key_points = [
-            f"充足率: {fulfillment_rate:.1f}%",
-            f"ソフト制約達成率: {schedule.soft_constraint_rate or 0:.1f}%",
+            f"ソフト制約達成率: {soft_rate:.1f}%",
+            f"1対2率: {one_to_two_rate_val:.1f}%",
         ]
 
         # LLMが生成した内容から主要ポイントを抽出（簡易実装）
@@ -1021,12 +1057,12 @@ class ScheduleService:
             ),
             trade_offs=[
                 TradeOff(
-                    description="講師の連続コマ数を緩和すれば充足率向上の可能性あり",
-                    pros=["充足率+1-2%の改善可能性"],
+                    description="講師の連続コマ数を緩和すれば改善の可能性あり",
+                    pros=["ソフト制約達成率+1-2%の改善可能性"],
                     cons=["講師の負荷増加"],
                     recommendation="検討可",
                 )
-            ] if fulfillment_rate < 90 else [],
+            ] if soft_rate < 90 else [],
         )
 
     async def what_if(
@@ -1067,7 +1103,6 @@ class ScheduleService:
         # LLMサービスを使用してWhat-if分析
         context = WhatIfContext(
             question=question,
-            current_fulfillment_rate=schedule.fulfillment_rate or Decimal("0"),
             current_soft_constraint_rate=schedule.soft_constraint_rate or Decimal("0"),
             related_constraints=related_constraints,
             affected_teachers=[],  # 実際には質問を解析して特定
@@ -1081,7 +1116,7 @@ class ScheduleService:
             analysis={
                 "feasible": True,
                 "impact": {
-                    "fulfillment_rate_change": -0.5,
+                    "soft_constraint_rate_change": -0.5,
                     "soft_constraint_violations_added": 1,
                 },
             },
@@ -1130,7 +1165,6 @@ class ScheduleService:
 
         # メトリクス
         metrics = ScheduleMetrics(
-            fulfillment_rate=schedule.fulfillment_rate or Decimal("0"),
             soft_constraint_rate=schedule.soft_constraint_rate or Decimal("0"),
             one_to_two_rate=one_to_two_rate,
             unplaced_count=unplaced_count,
@@ -1323,7 +1357,7 @@ class ScheduleService:
                         feasibility=feasibility,
                         violations=issues,
                         impact={
-                            "fulfillment_rate_change": 0,
+                            "soft_constraint_rate_change": 0,
                             "new_violations": len(issues),
                         },
                     )
@@ -1413,7 +1447,6 @@ class ScheduleService:
             success=True,
             new_slot_id=slot.slot_id,
             updated_metrics=ScheduleMetrics(
-                fulfillment_rate=schedule.fulfillment_rate or Decimal("0"),
                 soft_constraint_rate=schedule.soft_constraint_rate or Decimal("0"),
                 one_to_two_rate=one_to_two_rate,
                 unplaced_count=unplaced_count,
@@ -1548,7 +1581,6 @@ class ScheduleService:
             schedule_id=str(schedule.schedule_id),
             term_name=schedule.term.term_name,
             classroom_name=classroom_name,
-            fulfillment_rate=schedule.fulfillment_rate or Decimal("0"),
             soft_constraint_rate=schedule.soft_constraint_rate or Decimal("0"),
             status=schedule.status.value,
             slots=export_slots,
@@ -1594,17 +1626,21 @@ class ScheduleService:
         )
         schedules = result.scalars().all()
 
-        return ScheduleListResponse(
-            data=[
+        items = []
+        for s in schedules:
+            # generation_configから1対2率を取得
+            one_to_two_rate = None
+            if s.generation_config and "one_to_two_rate" in s.generation_config:
+                one_to_two_rate = Decimal(str(s.generation_config["one_to_two_rate"]))
+            items.append(
                 ScheduleListItem(
                     schedule_id=s.schedule_id,
                     version=s.version,
                     status=s.status.value,
-                    fulfillment_rate=s.fulfillment_rate,
                     soft_constraint_rate=s.soft_constraint_rate,
+                    one_to_two_rate=one_to_two_rate,
                     created_at=s.created_at,
                     confirmed_at=s.confirmed_at,
                 )
-                for s in schedules
-            ]
-        )
+            )
+        return ScheduleListResponse(data=items)

@@ -114,7 +114,6 @@ export default function SchedulesPage() {
   const [selectedClassroomId, setSelectedClassroomId] = useState<string>('');
   const [selectedTermId, setSelectedTermId] = useState<string>('');
   const [selectedScheduleId, setSelectedScheduleId] = useState<string>('');
-  const [targetFulfillmentRate, setTargetFulfillmentRate] = useState<number>(85);
   const [maxTimeoutSeconds, setMaxTimeoutSeconds] = useState<number>(60);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationProgress, setGenerationProgress] = useState(0);
@@ -277,7 +276,6 @@ export default function SchedulesPage() {
       // 生成実行
       const result = await generateMutation.mutateAsync({
         options: {
-          target_fulfillment_rate: targetFulfillmentRate,
           max_timeout_seconds: maxTimeoutSeconds,
           progress_channel: progressChannel,
         },
@@ -721,7 +719,7 @@ export default function SchedulesPage() {
                     <SelectContent>
                       {scheduleList?.data.map((s) => (
                         <SelectItem key={s.schedule_id} value={s.schedule_id}>
-                          v{s.version} ({s.status}) - {formatRate(s.fulfillment_rate)}%
+                          v{s.version} ({s.status}) - 達成率: {formatRate(s.soft_constraint_rate)}%
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -1029,20 +1027,12 @@ export default function SchedulesPage() {
 
             <TabsContent value="generate" className="mt-4">
               <div className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="target-rate">目標充足率 (%)</Label>
-                    <Input
-                      id="target-rate"
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={targetFulfillmentRate}
-                      onChange={(e) => setTargetFulfillmentRate(Number(e.target.value || 0))}
-                    />
-                  </div>
+                <div className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="timeout">探索時間上限 (秒)</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Orchestratorが自動的に戦略を切り替えます (standard → relaxed → partial)
+                    </p>
                     <Input
                       id="timeout"
                       type="number"
@@ -1143,21 +1133,6 @@ export default function SchedulesPage() {
       {/* メトリクス */}
       {calendarView && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>充足率</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {formatRate(calendarView.metrics.fulfillment_rate)}%
-              </div>
-              <Progress
-                value={Number(calendarView.metrics.fulfillment_rate)}
-                className="h-2 mt-2"
-              />
-            </CardContent>
-          </Card>
-
           <Card>
             <CardHeader className="pb-2">
               <CardDescription>ソフト制約達成率</CardDescription>

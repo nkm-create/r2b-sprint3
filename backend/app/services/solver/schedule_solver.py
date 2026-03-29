@@ -141,9 +141,7 @@ class ScheduleSolver:
             unplaced = self._find_unplaced_students(
                 assignments, solver_input
             )
-            fulfillment, one_to_two_rate = self._calculate_rates(
-                assignments, solver_input
-            )
+            one_to_two_rate = self._calculate_one_to_two_rate(assignments)
             # ソフト制約達成率を実際のペナルティから計算
             soft_rate = self._calculate_soft_constraint_rate(
                 solver, penalties, penalty_max_possible
@@ -153,7 +151,6 @@ class ScheduleSolver:
                 status="optimal" if status == cp_model.OPTIMAL else "feasible",
                 assignments=assignments,
                 unplaced_students=unplaced,
-                fulfillment_rate=fulfillment,
                 soft_constraint_rate=soft_rate,
                 one_to_two_rate=one_to_two_rate,
                 stats=SolverStats(
@@ -337,39 +334,21 @@ class ScheduleSolver:
 
         return unplaced
 
-    def _calculate_rates(
+    def _calculate_one_to_two_rate(
         self,
         assignments: list[SlotAssignment],
-        solver_input: SolverInput,
-    ) -> tuple[Decimal, Decimal]:
-        """充足率と1対2率を計算"""
+    ) -> Decimal:
+        """1対2率を計算"""
         if not assignments:
-            return Decimal("0"), Decimal("0")
+            return Decimal("0")
 
-        # 1対2率
         one_to_two_count = sum(
             1 for a in assignments if a.slot_type == SlotType.ONE_TO_TWO
         )
         total_slots = len(assignments)
         one_to_two_rate = Decimal(one_to_two_count) / Decimal(total_slots) * 100
 
-        # 充足率（配置された生徒コマ数 / 必要生徒コマ数）
-        total_required = sum(
-            sum(subj["slots_per_week"] for subj in s.subjects)
-            for s in solver_input.students
-        )
-        total_placed = sum(
-            1 + (1 if a.student2_id else 0) for a in assignments
-        )
-        fulfillment_rate = (
-            Decimal(total_placed) / Decimal(total_required) * 100
-            if total_required > 0 else Decimal("0")
-        )
-
-        return (
-            fulfillment_rate.quantize(Decimal("0.01")),
-            one_to_two_rate.quantize(Decimal("0.01")),
-        )
+        return one_to_two_rate.quantize(Decimal("0.01"))
 
     def _calculate_soft_constraint_rate(
         self,
