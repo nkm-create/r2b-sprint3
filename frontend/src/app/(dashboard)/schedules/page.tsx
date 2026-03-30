@@ -993,13 +993,13 @@ export default function SchedulesPage() {
                         const teacherName = teacherMasterItems.find((t) => t.teacher_id === constraint.target_id)?.name;
                         let displayValue = '';
                         if (constraint.constraint_type === 'subject_limit') {
-                          const subjectIds = (constraint.value as { subject_ids?: string[] })?.subject_ids ?? [];
+                          const subjectIds = (constraint.constraint_value as { subject_ids?: string[] })?.subject_ids ?? [];
                           displayValue = subjectIds.map((k) => SUBJECT_OPTIONS.find((s) => s.key === k)?.label ?? k).join('、');
                         } else if (constraint.constraint_type === 'day_limit') {
-                          const days = (constraint.value as { days?: string[] })?.days ?? [];
+                          const days = (constraint.constraint_value as { days?: string[] })?.days ?? [];
                           displayValue = days.map((k) => DAY_OPTIONS.find((d) => d.key === k)?.label ?? k).join('、');
                         } else if (constraint.constraint_type === 'booth_capacity') {
-                          displayValue = `${(constraint.value as { value?: number })?.value ?? 0} ブース`;
+                          displayValue = `${(constraint.constraint_value as { value?: number })?.value ?? 0} ブース`;
                         }
                         return (
                           <div key={idx} className="flex items-center gap-2 text-xs bg-background rounded p-2 border">
