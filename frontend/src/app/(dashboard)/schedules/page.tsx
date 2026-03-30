@@ -104,6 +104,46 @@ const HARD_CONSTRAINTS = [
   { id: 'H005', name: 'NG組合せ禁止', description: '生徒NG講師・講師NG生徒の組合せを禁止（常時適用）' },
 ];
 
+const SOFT_POLICIES = [
+  {
+    id: 'P001',
+    name: '志望レベル別ペアリング',
+    description: '同じ志望レベル（A/B/C）の生徒同士を優先的にペアにする。異なるレベルの混在を防ぎ、授業品質を均一化する',
+  },
+  {
+    id: 'P002',
+    name: '小学生科目グルーピング',
+    description: '算数・英語・理科など特定科目の小学生同士を優先的にペアにする。同科目受講の生徒をまとめて指導効率を高める',
+  },
+  {
+    id: 'P003',
+    name: '中学生苦手科目優先ペアリング',
+    description: '苦手科目を受講する中学生を同科目の生徒と優先的にペアにする。受験対策として苦手科目の集中補強を支援する',
+  },
+  {
+    id: 'P004',
+    name: '希望講師・性別希望の反映',
+    description: '生徒が指定した希望講師や講師性別の希望を最適化に反映する。希望通りにならない場合でも最適解の探索を継続する',
+    subSettings: [
+      { key: 'enable_preferred_teacher', label: '希望講師を優先する' },
+      { key: 'enable_gender_preference', label: '講師性別希望を考慮する' },
+    ],
+  },
+  {
+    id: 'P005',
+    name: '1対2充足率の目標設定',
+    description: '1対2形式の授業が全体の何%以上になるよう最適化するかを設定する（デフォルト85%）。目標未達の場合は生成後に警告を表示する',
+    paramKey: 'target_rate',
+    paramLabel: '目標充足率 (%)',
+    paramDefault: 85,
+  },
+  {
+    id: 'P006',
+    name: '特定コマの優先配置',
+    description: '土曜日1限など利用率の低い特定コマに生徒を優先的に配置する。教室全体の稼働効率を最大化する',
+  },
+];
+
 export default function SchedulesPage() {
   type TeacherConstraintDraft = {
     draftId: string;
@@ -436,31 +476,27 @@ export default function SchedulesPage() {
     }
   };
 
-  const handlePreferencePolicyToggle = async (
-    key: 'enable_preferred_teacher' | 'enable_gender_preference',
-    checked: boolean
-  ) => {
+  const handlePolicyToggle = async (policyId: string, isEnabled: boolean) => {
     if (!selectedClassroomId || !selectedTermId) return;
-    const base = effectivePolicies.find((policy) => policy.policy_type === 'P004');
-    const currentParameters = base?.parameters ?? {
-      enable_preferred_teacher: true,
-      enable_gender_preference: true,
-    };
+    const base = effectivePolicies.find((p: any) => p.policy_type === policyId);
     try {
       await updatePoliciesMutation.mutateAsync({
-        policies: [
-          {
-            policy_type: 'P004',
-            is_enabled: true,
-            parameters: {
-              ...currentParameters,
-              [key]: checked,
-            },
-          },
-        ],
-      });
-      setJourneyMessage('希望データ反映設定を更新しました');
+        policies: [{ policy_type: policyId, is_enabled: isEnabled, parameters: base?.parameters ?? {} }],
+      } as any);
+      setJourneyMessage(`${policyId} を${isEnabled ? '有効' : '無効'}にしました`);
       await refetchJourneyStatus();
+    } catch (error) {
+      setJourneyMessage(getErrorMessage(error));
+    }
+  };
+
+  const handlePolicyParamChange = async (policyId: string, paramKey: string, value: unknown) => {
+    if (!selectedClassroomId || !selectedTermId) return;
+    const base = effectivePolicies.find((p: any) => p.policy_type === policyId);
+    try {
+      await updatePoliciesMutation.mutateAsync({
+        policies: [{ policy_type: policyId, is_enabled: base?.is_enabled ?? true, parameters: { ...(base?.parameters ?? {}), [paramKey]: value } }],
+      } as any);
     } catch (error) {
       setJourneyMessage(getErrorMessage(error));
     }
@@ -543,7 +579,8 @@ export default function SchedulesPage() {
     },
   ];
 
-  const p004Policy = effectivePolicies.find((policy) => policy.policy_type === 'P004');
+  const getPolicyState = (policyId: string) =>
+    effectivePolicies.find((p: any) => p.policy_type === policyId);
   const teacherMasterItems = useMemo(() => {
     const fromMaster = masterStatus?.teachers?.items ?? [];
     if (fromMaster.length > 0) {
@@ -763,266 +800,297 @@ export default function SchedulesPage() {
               </div>
             </TabsContent>
 
-            <TabsContent value="conditions" className="mt-4 space-y-4">
-              <div className="rounded border p-4 space-y-3">
-                <p className="text-sm font-semibold">必須制約（ハード制約）</p>
-                <p className="text-xs text-muted-foreground">
-                  ここは自動適用され、変更できません
-                </p>
-                <div className="space-y-2">
+            <TabsContent value="conditions" className="mt-4 space-y-6">
+
+              {/* セクション1: ハード制約 */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-semibold">ハード制約</h3>
+                  <Badge variant="secondary" className="text-xs">常時適用・変更不可</Badge>
+                </div>
+                <p className="text-xs text-muted-foreground">違反すると時間割が生成されない絶対条件です。</p>
+                <div className="space-y-1.5">
                   {HARD_CONSTRAINTS.map((item) => (
-                    <div key={item.id} className="flex items-start justify-between rounded border p-2">
-                      <div>
-                        <p className="text-sm font-medium">{item.id} {item.name}</p>
-                        <p className="text-xs text-muted-foreground">{item.description}</p>
+                    <div key={item.id} className="flex items-center gap-3 rounded-lg border bg-muted/30 px-3 py-2">
+                      <Badge variant="outline" className="text-xs shrink-0 font-mono">{item.id}</Badge>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-sm font-medium">{item.name}</span>
+                        <span className="text-xs text-muted-foreground ml-2">{item.description}</span>
                       </div>
-                      <Badge variant="secondary">固定ON</Badge>
+                      <Badge className="text-xs bg-green-100 text-green-800 border-green-200 shrink-0">ON</Badge>
                     </div>
                   ))}
                 </div>
               </div>
 
-              <div className="rounded border p-4 space-y-3">
-                <p className="text-sm font-semibold">調整可能制約（ターム限定）</p>
-                <p className="text-xs text-muted-foreground">
-                  マスタの基本値に対して、このタームだけ上書きできます
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  ※個人ごとの設定は T001/T002 のみです。講師選択は各カード内で行います。
-                </p>
+              {/* セクション2: ターム固有調整 */}
+              <div className="space-y-3">
+                <div>
+                  <h3 className="text-sm font-semibold">ターム固有調整</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">マスタの基本値をこのタームだけ上書きします。未設定の場合はマスタ値が使われます。</p>
+                </div>
 
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between rounded border p-3 gap-3">
-                    <p className="text-sm font-medium min-w-[260px]">S007 同時授業数（ブース上限）</p>
-                    <div className="flex items-center gap-2">
+                {/* S007 */}
+                <div className="rounded-lg border p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs font-mono">S007</Badge>
+                        <p className="text-sm font-medium">同時授業数（ブース上限）</p>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">同一時間帯に入れる最大授業コマ数を上書きします</p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
                       <Input
                         type="number"
                         value={constraintDrafts.boothCapacity}
                         onChange={(e) =>
                           setConstraintDrafts((prev) => ({ ...prev, boothCapacity: Number(e.target.value || 0) }))
                         }
-                        className="w-24"
+                        className="w-20 h-8 text-sm"
                       />
+                      <span className="text-xs text-muted-foreground">ブース</span>
                       <Button type="button" size="sm" onClick={() => void applyConstraint('booth_capacity')}>
                         適用
                       </Button>
                     </div>
                   </div>
-
-                  <div className="rounded border p-3 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium">T001 講師の担当科目限定（ターム限定）</p>
-                        <p className="text-xs text-muted-foreground">このタームで担当可能な科目を制限します</p>
-                      </div>
-                      <Button type="button" variant="outline" size="sm" onClick={() => addTeacherDraft('subject')}>
-                        講師を追加
-                      </Button>
-                    </div>
-                    {teacherMasterItems.length === 0 && (
-                      <Alert>
-                        <AlertTriangle className="h-4 w-4" />
-                        <AlertDescription>
-                          講師候補が読み込めていません。ターム選択後に再読み込みしてください。
-                        </AlertDescription>
-                      </Alert>
-                    )}
-                    {subjectLimitDrafts.map((draft) => (
-                      <div key={draft.draftId} className="rounded border p-3 space-y-2 bg-muted/30">
-                        <div className="flex items-center gap-2">
-                          <Select
-                            value={draft.teacherId}
-                            onValueChange={(value) => updateTeacherDraft('subject', draft.draftId, { teacherId: value })}
-                          >
-                            <SelectTrigger className="w-64">
-                              <SelectValue placeholder="講師を選択してください" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {teacherMasterItems.map((teacher) => (
-                                <SelectItem key={teacher.teacher_id} value={teacher.teacher_id}>
-                                  {teacher.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeTeacherDraft('subject', draft.draftId)}
-                          >
-                            削除
-                          </Button>
-                        </div>
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-                          {SUBJECT_OPTIONS.map((subject) => (
-                            <label
-                              key={subject.key}
-                              className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 p-1 rounded"
-                            >
-                              <Checkbox
-                                checked={draft.selectedValues.includes(subject.key)}
-                                onCheckedChange={() => toggleTeacherDraftValue('subject', draft.draftId, subject.key)}
-                              />
-                              {subject.label}
-                            </label>
-                          ))}
-                        </div>
-                        {draft.selectedValues.length > 0 && (
-                          <p className="text-xs text-muted-foreground">
-                            選択中: {draft.selectedValues.map((k) => SUBJECT_OPTIONS.find((s) => s.key === k)?.label ?? k).join('、')}
-                          </p>
-                        )}
-                      </div>
-                    ))}
-                    <Button type="button" size="sm" onClick={() => void applyTeacherDrafts('subject')}>
-                      T001を保存
-                    </Button>
-                  </div>
-
-                  <div className="rounded border p-3 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium">T002 講師の担当曜日限定（ターム限定）</p>
-                        <p className="text-xs text-muted-foreground">このタームで出勤可能な曜日を制限します</p>
-                      </div>
-                      <Button type="button" variant="outline" size="sm" onClick={() => addTeacherDraft('day')}>
-                        講師を追加
-                      </Button>
-                    </div>
-                    {dayLimitDrafts.map((draft) => (
-                      <div key={draft.draftId} className="rounded border p-3 space-y-2 bg-muted/30">
-                        <div className="flex items-center gap-2">
-                          <Select
-                            value={draft.teacherId}
-                            onValueChange={(value) => updateTeacherDraft('day', draft.draftId, { teacherId: value })}
-                          >
-                            <SelectTrigger className="w-64">
-                              <SelectValue placeholder="講師を選択してください" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {teacherMasterItems.map((teacher) => (
-                                <SelectItem key={teacher.teacher_id} value={teacher.teacher_id}>
-                                  {teacher.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeTeacherDraft('day', draft.draftId)}
-                          >
-                            削除
-                          </Button>
-                        </div>
-                        <div className="flex flex-wrap gap-3">
-                          {DAY_OPTIONS.map((day) => (
-                            <label
-                              key={day.key}
-                              className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 p-1 rounded"
-                            >
-                              <Checkbox
-                                checked={draft.selectedValues.includes(day.key)}
-                                onCheckedChange={() => toggleTeacherDraftValue('day', draft.draftId, day.key)}
-                              />
-                              {day.label}
-                            </label>
-                          ))}
-                        </div>
-                        {draft.selectedValues.length > 0 && (
-                          <p className="text-xs text-muted-foreground">
-                            選択中: {draft.selectedValues.map((k) => DAY_OPTIONS.find((d) => d.key === k)?.label ?? k).join('、')}
-                          </p>
-                        )}
-                      </div>
-                    ))}
-                    <Button type="button" size="sm" onClick={() => void applyTeacherDrafts('day')}>
-                      T002を保存
-                    </Button>
-                  </div>
-
-                  <div className="flex items-center justify-between rounded border p-3 gap-3">
-                    <div className="min-w-[260px]">
-                      <p className="text-sm font-medium">希望講師の反映</p>
-                      <p className="text-xs text-muted-foreground">Excel希望データ内の「希望講師」を最適化で使う</p>
-                    </div>
-                    <Checkbox
-                      checked={Boolean(p004Policy?.parameters.enable_preferred_teacher ?? true)}
-                      onCheckedChange={(checked) =>
-                        void handlePreferencePolicyToggle('enable_preferred_teacher', Boolean(checked))
-                      }
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between rounded border p-3 gap-3">
-                    <div className="min-w-[260px]">
-                      <p className="text-sm font-medium">講師性別希望の反映</p>
-                      <p className="text-xs text-muted-foreground">Excel希望データ内の「講師性別希望」を最適化で使う</p>
-                    </div>
-                    <Checkbox
-                      checked={Boolean(p004Policy?.parameters.enable_gender_preference ?? true)}
-                      onCheckedChange={(checked) =>
-                        void handlePreferencePolicyToggle('enable_gender_preference', Boolean(checked))
-                      }
-                    />
-                  </div>
                 </div>
 
-                {/* 保存結果のフィードバック */}
-                {constraintSaveMessage && (
-                  <Alert variant={constraintSaveMessage.type === 'error' ? 'destructive' : 'default'} className="mt-3">
-                    {constraintSaveMessage.type === 'error' ? (
+                {/* T001 */}
+                <div className="rounded-lg border p-3 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs font-mono">T001</Badge>
+                        <p className="text-sm font-medium">講師の担当科目限定</p>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">特定の講師がこのタームで担当できる科目を制限します</p>
+                    </div>
+                    <Button type="button" variant="outline" size="sm" onClick={() => addTeacherDraft('subject')}>
+                      + 講師を追加
+                    </Button>
+                  </div>
+                  {teacherMasterItems.length === 0 && (
+                    <Alert>
                       <AlertTriangle className="h-4 w-4" />
-                    ) : (
-                      <Check className="h-4 w-4" />
-                    )}
+                      <AlertDescription>講師候補が読み込めていません。ターム選択後に再読み込みしてください。</AlertDescription>
+                    </Alert>
+                  )}
+                  {subjectLimitDrafts.map((draft) => (
+                    <div key={draft.draftId} className="rounded border p-3 space-y-2 bg-muted/20">
+                      <div className="flex items-center gap-2">
+                        <Select
+                          value={draft.teacherId}
+                          onValueChange={(value) => updateTeacherDraft('subject', draft.draftId, { teacherId: value })}
+                        >
+                          <SelectTrigger className="w-56">
+                            <SelectValue placeholder="講師を選択" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {teacherMasterItems.map((teacher) => (
+                              <SelectItem key={teacher.teacher_id} value={teacher.teacher_id}>
+                                {teacher.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => removeTeacherDraft('subject', draft.draftId)}>
+                          削除
+                        </Button>
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-1.5">
+                        {SUBJECT_OPTIONS.map((subject) => (
+                          <label key={subject.key} className="flex items-center gap-1.5 text-xs cursor-pointer hover:bg-muted/50 p-1 rounded">
+                            <Checkbox
+                              checked={draft.selectedValues.includes(subject.key)}
+                              onCheckedChange={() => toggleTeacherDraftValue('subject', draft.draftId, subject.key)}
+                            />
+                            {subject.label}
+                          </label>
+                        ))}
+                      </div>
+                      {draft.selectedValues.length > 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          選択中: {draft.selectedValues.map((k) => SUBJECT_OPTIONS.find((s) => s.key === k)?.label ?? k).join('、')}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                  <Button type="button" size="sm" onClick={() => void applyTeacherDrafts('subject')}>
+                    T001を保存
+                  </Button>
+                </div>
+
+                {/* T002 */}
+                <div className="rounded-lg border p-3 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs font-mono">T002</Badge>
+                        <p className="text-sm font-medium">講師の担当曜日限定</p>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">特定の講師がこのタームで出勤できる曜日を制限します</p>
+                    </div>
+                    <Button type="button" variant="outline" size="sm" onClick={() => addTeacherDraft('day')}>
+                      + 講師を追加
+                    </Button>
+                  </div>
+                  {dayLimitDrafts.map((draft) => (
+                    <div key={draft.draftId} className="rounded border p-3 space-y-2 bg-muted/20">
+                      <div className="flex items-center gap-2">
+                        <Select
+                          value={draft.teacherId}
+                          onValueChange={(value) => updateTeacherDraft('day', draft.draftId, { teacherId: value })}
+                        >
+                          <SelectTrigger className="w-56">
+                            <SelectValue placeholder="講師を選択" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {teacherMasterItems.map((teacher) => (
+                              <SelectItem key={teacher.teacher_id} value={teacher.teacher_id}>
+                                {teacher.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => removeTeacherDraft('day', draft.draftId)}>
+                          削除
+                        </Button>
+                      </div>
+                      <div className="flex flex-wrap gap-3">
+                        {DAY_OPTIONS.map((day) => (
+                          <label key={day.key} className="flex items-center gap-1.5 text-sm cursor-pointer hover:bg-muted/50 px-2 py-1 rounded">
+                            <Checkbox
+                              checked={draft.selectedValues.includes(day.key)}
+                              onCheckedChange={() => toggleTeacherDraftValue('day', draft.draftId, day.key)}
+                            />
+                            {day.label}
+                          </label>
+                        ))}
+                      </div>
+                      {draft.selectedValues.length > 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          選択中: {draft.selectedValues.map((k) => DAY_OPTIONS.find((d) => d.key === k)?.label ?? k).join('、')}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                  <Button type="button" size="sm" onClick={() => void applyTeacherDrafts('day')}>
+                    T002を保存
+                  </Button>
+                </div>
+
+                {/* 登録済み制約サマリー */}
+                {constraintsData?.data && constraintsData.data.length > 0 && (
+                  <div className="rounded-lg border p-3 space-y-1.5 bg-muted/10">
+                    <p className="text-xs font-medium text-muted-foreground">登録済みの制約</p>
+                    {constraintsData.data.map((constraint, idx) => {
+                      const teacherName = teacherMasterItems.find((t) => t.teacher_id === constraint.target_id)?.name;
+                      let displayValue = '';
+                      if (constraint.constraint_type === 'subject_limit') {
+                        const ids = (constraint.constraint_value as { subject_ids?: string[] })?.subject_ids ?? [];
+                        displayValue = ids.map((k) => SUBJECT_OPTIONS.find((s) => s.key === k)?.label ?? k).join('、');
+                      } else if (constraint.constraint_type === 'day_limit') {
+                        const days = (constraint.constraint_value as { days?: string[] })?.days ?? [];
+                        displayValue = days.map((k) => DAY_OPTIONS.find((d) => d.key === k)?.label ?? k).join('、');
+                      } else if (constraint.constraint_type === 'booth_capacity') {
+                        displayValue = `${(constraint.constraint_value as { value?: number })?.value ?? 0} ブース`;
+                      }
+                      return (
+                        <div key={idx} className="flex items-center gap-2 text-xs">
+                          <Badge variant="outline" className="font-mono text-xs">
+                            {constraint.constraint_type === 'subject_limit' && 'T001'}
+                            {constraint.constraint_type === 'day_limit' && 'T002'}
+                            {constraint.constraint_type === 'booth_capacity' && 'S007'}
+                          </Badge>
+                          <span className="font-medium">
+                            {constraint.target_type === 'teacher' ? (teacherName ?? constraint.target_id) : '教室全体'}
+                          </span>
+                          <span className="text-muted-foreground">→ {displayValue}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {constraintSaveMessage && (
+                  <Alert variant={constraintSaveMessage.type === 'error' ? 'destructive' : 'default'}>
+                    {constraintSaveMessage.type === 'error' ? <AlertTriangle className="h-4 w-4" /> : <Check className="h-4 w-4" />}
                     <AlertDescription>{constraintSaveMessage.text}</AlertDescription>
                   </Alert>
                 )}
+              </div>
 
-                {/* 登録済み制約の詳細表示 */}
-                <div className="mt-4 rounded border p-3 space-y-2 bg-muted/20">
-                  <p className="text-sm font-medium">登録済みの制約一覧</p>
-                  {(!constraintsData?.data || constraintsData.data.length === 0) ? (
-                    <p className="text-xs text-muted-foreground">まだ制約が登録されていません</p>
-                  ) : (
-                    <div className="space-y-1">
-                      {constraintsData.data.map((constraint, idx) => {
-                        const teacherName = teacherMasterItems.find((t) => t.teacher_id === constraint.target_id)?.name;
-                        let displayValue = '';
-                        if (constraint.constraint_type === 'subject_limit') {
-                          const subjectIds = (constraint.constraint_value as { subject_ids?: string[] })?.subject_ids ?? [];
-                          displayValue = subjectIds.map((k) => SUBJECT_OPTIONS.find((s) => s.key === k)?.label ?? k).join('、');
-                        } else if (constraint.constraint_type === 'day_limit') {
-                          const days = (constraint.constraint_value as { days?: string[] })?.days ?? [];
-                          displayValue = days.map((k) => DAY_OPTIONS.find((d) => d.key === k)?.label ?? k).join('、');
-                        } else if (constraint.constraint_type === 'booth_capacity') {
-                          displayValue = `${(constraint.constraint_value as { value?: number })?.value ?? 0} ブース`;
-                        }
-                        return (
-                          <div key={idx} className="flex items-center gap-2 text-xs bg-background rounded p-2 border">
-                            <Badge variant="outline" className="text-xs">
-                              {constraint.constraint_type === 'subject_limit' && 'T001'}
-                              {constraint.constraint_type === 'day_limit' && 'T002'}
-                              {constraint.constraint_type === 'booth_capacity' && 'S007'}
-                            </Badge>
-                            {constraint.target_type === 'teacher' && (
-                              <span className="font-medium">{teacherName ?? constraint.target_id}</span>
-                            )}
-                            {constraint.target_type === 'classroom' && (
-                              <span className="font-medium">教室全体</span>
-                            )}
-                            <span className="text-muted-foreground">→</span>
-                            <span>{displayValue}</span>
+              {/* セクション3: 最適化ポリシー */}
+              <div className="space-y-3">
+                <div>
+                  <h3 className="text-sm font-semibold">最適化ポリシー</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    ONにした項目がソルバーの目的関数に反映されます。OFFにすると最適化で考慮されません。
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  {SOFT_POLICIES.map((policy) => {
+                    const state = getPolicyState(policy.id);
+                    const isEnabled = state?.is_enabled ?? true;
+                    return (
+                      <div
+                        key={policy.id}
+                        className={`rounded-lg border p-3 space-y-2 transition-colors ${isEnabled ? 'bg-background' : 'bg-muted/20 opacity-60'}`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <Checkbox
+                            checked={isEnabled}
+                            disabled={!selectedClassroomId || !selectedTermId}
+                            onCheckedChange={(checked) => void handlePolicyToggle(policy.id, Boolean(checked))}
+                            className="mt-0.5 shrink-0"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="text-xs font-mono shrink-0">{policy.id}</Badge>
+                              <p className="text-sm font-medium">{policy.name}</p>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-0.5">{policy.description}</p>
                           </div>
-                        );
-                      })}
-                    </div>
-                  )}
+                        </div>
+                        {/* P004 サブ設定 */}
+                        {'subSettings' in policy && isEnabled && (
+                          <div className="ml-7 space-y-1.5 pt-1 border-t">
+                            {policy.subSettings!.map((sub) => (
+                              <label key={sub.key} className="flex items-center justify-between cursor-pointer">
+                                <span className="text-xs text-muted-foreground">{sub.label}</span>
+                                <Checkbox
+                                  checked={Boolean(state?.parameters?.[sub.key] ?? true)}
+                                  disabled={!selectedClassroomId || !selectedTermId}
+                                  onCheckedChange={(checked) => void handlePolicyParamChange(policy.id, sub.key, Boolean(checked))}
+                                />
+                              </label>
+                            ))}
+                          </div>
+                        )}
+                        {/* P005 数値入力 */}
+                        {'paramKey' in policy && isEnabled && (
+                          <div className="ml-7 flex items-center gap-2 pt-1 border-t">
+                            <span className="text-xs text-muted-foreground">{policy.paramLabel}</span>
+                            <Input
+                              type="number"
+                              min={0}
+                              max={100}
+                              className="w-20 h-7 text-xs"
+                              value={state?.parameters?.[policy.paramKey!] ?? policy.paramDefault}
+                              disabled={!selectedClassroomId || !selectedTermId}
+                              onChange={(e) => void handlePolicyParamChange(policy.id, policy.paramKey!, Number(e.target.value))}
+                            />
+                            <span className="text-xs text-muted-foreground">%</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
+
             </TabsContent>
 
             <TabsContent value="generate" className="mt-4">
