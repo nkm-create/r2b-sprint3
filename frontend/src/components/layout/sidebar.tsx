@@ -32,13 +32,8 @@ const mainNavItems: NavItem[] = [
   },
   {
     title: '時間割作成',
-    href: '/schedule/create',
+    href: '/schedules',
     icon: Calendar,
-  },
-  {
-    title: '時間割確認',
-    href: '/schedule/view',
-    icon: ClipboardList,
   },
 ];
 
